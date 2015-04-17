@@ -1,0 +1,8 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/ConfigFile.t
+t/ConfigFileScheme.t
+lib/ConfigFile.pm
+lib/ConfigFileScheme.pm

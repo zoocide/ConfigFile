@@ -1,0 +1,9 @@
+Revision history for Perl extension ConfigFile.
+
+0.2.0
+  Make this separate module package from the existing repository http://github.com/zoocide/pts.
+
+0.01  Sat Apr 18 01:41:27 2015
+	- original version; created by h2xs 1.23 with options
+		-XAn ConfigFile -b 5.0.8
+
