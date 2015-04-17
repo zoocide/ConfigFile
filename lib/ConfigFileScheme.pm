@@ -26,7 +26,7 @@ use Exceptions;
   }
   catch{
     ...
-  } 'Exceptions::List';
+  } 'List';
 
 =head1 DESCRIPTION
 

@@ -8,6 +8,10 @@ use ConfigFileScheme;
 use vars qw($VERSION);
 $VERSION = '0.2.0';
 
+=head1 NAME
+
+ConfigFile - read and write configuration files aka '.ini'.
+
 =head1 SYNOPSIS
 
   my $decl = ConfigFileScheme->new( multiline => 1,... );
@@ -29,7 +33,7 @@ $VERSION = '0.2.0';
   }
   catch{
     print map "warning: $_\n", @{$@};
-  } 'Exceptions::List';
+  } 'List';
 
   my $gr = $cf->get_all;
   $gr->{'group'}{'var'};
@@ -206,7 +210,7 @@ sub load
   }
   catch{
     push @errors, @{$@};
-  } 'Exceptions::List';
+  } 'List';
 
   if (@errors){
     return @errors if wantarray;
