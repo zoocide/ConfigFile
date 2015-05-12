@@ -306,3 +306,49 @@ sub m_shield_str
 
 1;
 
+__END__
+
+=head1 METHODS
+
+=over
+
+=item new($filename, declaration)
+
+  my $decl = ConfigFileScheme->new( multiline => 1,... );
+  my $cf   = ConfigFile->new($file_name, $decl);
+  # the same as #
+  my $cf = ConfigFile->new($file_name, { multiline => 1,... });
+  # the same as #
+  my $cf = ConfigFile->new($file_name,   multiline => 1,...  );
+  # or #
+  my $cf = ConfigFile->new($file_name);
+
+=item load
+
+Read and parse the file. All occurred discrepancies will be thrown as exceptions.
+
+=item check_required
+
+=item check_required($hash)
+
+=item check_required(@hash)
+
+=item get_all
+
+Returns a hash reference = {group => [@variables], ...}
+
+=item set_group('group')
+
+Set current group to the specified value.
+
+=item set_var('variable', $value)
+
+Set value for the variable of the current group.
+
+=item save
+
+Write configuration into file.
+
+=back
+
+=cut
