@@ -89,9 +89,55 @@ eval {
   ok($conf->is_set('info', 'time'  ));
   ok(!$conf->is_set('group_not_existed', 'var_not_existed'));
   ok(!$conf->is_set('', 'var_not_existed'));
+  
+  ## check variables substitution ##
+  fill_file(<<'EOF');
+#config file
+v=abc
+v1=a b c
+v_str='first
+ last'
+a=a
+  b
+  c
+s0 = \${v}
+s1 = ${v}
+s2 = \'${v}\'
+s3 = ${v}${v}
+s4 = ${v1}
+s5 = ${v1}${v1}
+s6 = ++${v_str}${v}++
+s7 = ${v1}${a}
+s8 = ${a}
+s9 = ${a}${v_str}
+EOF
+  $conf = ConfigFile->new($fname, multiline => {'' => [qw(v1 a s9)]});
+  eval{ $conf->load };
+  ok(!$@, 'config file with substitutions');
+  is($conf->get_var('', 'v'), 'abc', 'variable v');
+  is_deeply($conf->get_var('', 'v1'), [qw(a b c)], 'array v1');
+  is($conf->get_var('', 'v_str'), "first\n last", 'variable v_str');
+  is_deeply($conf->get_var('', 'a'), [qw(a b c)], 'array a');
+  is($conf->get_var('', 's0'), '${v}', 's0');
+  is($conf->get_var('', 's1'), 'abc', 's1');
+  is($conf->get_var('', 's2'), '\'abc\'', 's2');
+  is($conf->get_var('', 's3'), 'abcabc', 's3');
+  is($conf->get_var('', 's4'), 'a b c', 's4');
+  is($conf->get_var('', 's5'), 'a b ca b c', 's5');
+  is($conf->get_var('', 's6'), "++first\n lastabc++", 's6');
+  is($conf->get_var('', 's7'), 'a b ca b c', 's7');
+  is($conf->get_var('', 's8'), 'a b c', 's8');
+  is_deeply($conf->get_var('', 's9'), ['a', 'b', 'c', 'first\n last'], 's9');
 };
 
 ## finally ##
 unlink $fname if -e $fname;
 throw if $@;
 
+sub fill_file
+{
+  open my $f, '>', $fname or diag("cannot open file $fname:$!\n") && return 0;
+  print $f @_;
+  close $f;
+  1
+}
