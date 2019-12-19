@@ -32,28 +32,6 @@ my %map = (
     }
     $out;
   },
-  substr2 => sub {
-    my $s = $str;
-    my $c;
-    my $special = 0;
-    my $out = '';
-    for my $i (0 .. length($s) - 1) {
-      $c = substr $s, $i, 1;
-      if ($special) {
-        $special = 0;
-        $c = '\\'.$c if $c ne '\\' && $c ne '#';
-      }
-      elsif ($c eq '\\') {
-        $special = 1;
-        next;
-      }
-      elsif ($c eq '#') {
-        last;
-      }
-      $out .= $c;
-    }
-    $out;
-  },
 );
 
 my @tests = (
