@@ -38,6 +38,11 @@ ConfigFile - read and write configuration files aka '.ini'.
   my $gr = $cf->get_all;
   $gr->{'group'}{'var'};
 
+  my $value;
+  $value = $cf->get_var('group', 'var', 'default value');
+  # <=>
+  $value = $cf->is_set('group', 'var') ? $cf->get_var('group', 'var') : 'default value';
+
   $cf->set_group('group');
   $cf->set_var('var_name', 'value');
   $cf->save;
@@ -247,7 +252,7 @@ sub save
 sub file_name { $_[0]{fname} }
 sub get_all   { $_[0]{content} }
 sub get_group { $_[0]{content}{$_[1]} }
-sub get_var   { $_[0]{content}{$_[1]}{$_[2]} }
+sub get_var   { defined $_[0]{content}{$_[1]}{$_[2]} ? $_[0]{content}{$_[1]}{$_[2]} : $_[3] }
 sub is_set    { defined $_[0]{content}{$_[1]}{$_[2]} }
 
 sub set_group { $_[0]{cur_group} = $#_ < 1 ? '' : $_[1] }
