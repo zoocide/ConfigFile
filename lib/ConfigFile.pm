@@ -260,7 +260,7 @@ sub skip_unrecognized_lines
 {
   my $self = shift;
   my $ret = $self->{skip_unrecognized_lines};
-  $self->{skip_unrecognized_lines} = 1 if @_ && $_[0];
+  $self->{skip_unrecognized_lines} = $_[0] ? 1 : 0 if @_;
   $ret
 }
 
