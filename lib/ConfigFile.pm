@@ -6,7 +6,7 @@ use Exceptions::OpenFileError;
 use ConfigFileScheme;
 
 use vars qw($VERSION);
-$VERSION = '0.2.0';
+$VERSION = '0.2.1';
 
 =head1 NAME
 
