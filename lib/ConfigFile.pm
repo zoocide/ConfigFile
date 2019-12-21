@@ -6,7 +6,7 @@ use Exceptions::OpenFileError;
 use ConfigFileScheme;
 
 use vars qw($VERSION);
-$VERSION = '0.2.1';
+$VERSION = '0.3.0';
 
 =head1 NAME
 
@@ -14,6 +14,7 @@ ConfigFile - read and write configuration files aka '.ini'.
 
 =head1 SYNOPSIS
 
+  ## load configuration file ##
   my $decl = ConfigFileScheme->new( multiline => 1,... );
   my $cf   = ConfigFile->new($file_name, $decl);
   # <=>
@@ -29,22 +30,28 @@ ConfigFile - read and write configuration files aka '.ini'.
   $cf->skip_unrecognized_lines(1);
 
   try{
-    $cf->load;
+    $cf->load; #< all checks are included
   }
   catch{
     print map "warning: $_\n", @{$@};
   } 'List';
+  # <=>
+  print "warning: $_\n" for $cf->load; #< It raises exception if can not open file.
 
-  my $gr = $cf->get_all;
-  $gr->{'group'}{'var'};
+  ## access variables ##
+  my $str = $cf->get_var('group', 'var', 'default value');
+  my @array = $cf->get_arr('group', 'var', @default_value);
 
   my $value;
   $value = $cf->get_var('group', 'var', 'default value');
   # <=>
-  $value = $cf->is_set('group', 'var') ? $cf->get_var('group', 'var') : 'default value';
+  $value = $cf->is_set('group', 'var') ? $cf->get_var('group', 'var')
+                                       : 'default value';
 
+  ## save configuration file ##
+  my $cf = ConfigFile->new($file_name);
   $cf->set_group('group');
-  $cf->set_var('var_name', 'value');
+  $cf->set_var('var_name', @values);
   $cf->save;
 
   --------
@@ -87,7 +94,7 @@ sub init
 # ok   :   # comment string
 # ok   : var_2 = '  a complex value  '
 # error: var_3 = 'a complex value
-# error: var_4 = 'a complex value' tail
+# ok   : var_4 = 'a complex value' tail
 # ok   : var_5 = 'a complex
 # ok   :      # this is a part of the string
 # ok   :
@@ -104,6 +111,7 @@ sub init
 # ok   :   elm4 elm5
 # ok   : arr_3 =
 # ok   : elm1 elm2 elm3 elm4
+# ok   : a1=a b 'c d' \'e '\\# 'f g
 
 # throws: Exceptions::OpenFileError, [Exceptions::TextFileError]
 sub load
@@ -114,99 +122,90 @@ sub load
 
   open(my $f, '<', $self->{fname}) || throw OpenFileError => $self->{fname};
 
-  my $state = 1; # 0 - read string; 1 - read scalar; 2 - read array
-  my ($var, $buf, @arr, $l, $is_multiline, $is_join_lines, $str_bl);
-  for($l = 1; <$f>; $l++){
-    if ($state){
-      if    (/^\s*(#|\r?\n?$)/){ #< is comment
+  my $inside_string = 0;
+  my $multiline = 0;
+  my ($ln, $s, $var, $gr, $parr, $str_beg_ln, $do_concat, $is_first);
+  for ($ln = 0; $s = <$f>; $ln++) {
+    #print $s;
+    chomp $s;
+    if (!$inside_string) {
+      ## determine expression type ##
+      if ($s =~ /^\s*(#|$)/){
+        # comment string
         next;
       }
-      elsif (/^\s*\[(\w+)\]\s*$/){ #< is group
-        $self->set_group($1);
-        $state = 1;
+      elsif ($s =~ /^\s*\[(\w+)\]\s*$/) {
+        # group declaration
+        $self->set_group($gr = $1);
+        $multiline = 0;
         next;
       }
-      elsif (/^\s*(\w+)\s*=\s*(.*\r?\n?)$/){ #< is assignment
+      elsif ($s =~ s/^\s*(\w+)\s*=//) {
+        # assignment statement
         $var = $1;
-        $buf = $2;
-        if (!$decl->is_valid($self->{cur_group}, $var)){
-          push @errors, Exceptions::TextFileError->new($self->{fname}, $l, "invalid variable '$var'");
-          $state = 1;
+        if (!$decl->is_valid($gr, $var)) {
+          push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "invalid variable '$var'");
+          $multiline = 0;
           next;
         }
-        @arr = m_split_buf($buf);
-
-        $str_bl = 0;
-        $is_multiline  = $decl->is_multiline ($self->{cur_group}, $var);
-        $is_join_lines = $decl->is_join_lines($self->{cur_group}, $var);
-
-        if ($is_multiline){
-          $state = 2;
-          $self->{content}{$self->{cur_group}}{$var} = '' if $is_join_lines;
-        }
-        else{
-          $state = 1;
-          $arr[0] =~ s/\s*(\r|\n)$//g if @arr == 1;
-          if (@arr > 1 && ($arr[0] || (@arr > 2 && $arr[2] !~ /^\s*$/) || @arr > 3 )){
-            push @errors, Exceptions::TextFileError->new($self->{fname}, $l, 'wrong value of scalar variable');
-            next;
-          }
-        }
+        $multiline = $decl->is_multiline($gr, $var);
+        $self->{content}{$gr}{$var} = ($parr = []);
       }
-      elsif ($state == 2){
-        @arr = m_split_buf($_);
-        $buf = $_ if $is_join_lines;
-      }
-      else{
+      elsif (!$multiline) {
+        # unrecognized string
         $self->{skip_unrecognized_lines} ||
             push @errors, Exceptions::TextFileError->new($self->{fname}
-                        , $l, 'unrecognized line');
-        next;
-      }
-
-      if (@arr % 2 == 0){
-        # string not closed
-        $str_bl = $l if !$str_bl;
-        $state = 0;
+                        , $ln, "unrecognized line '$s'");
         next;
       }
     }
-    else{
-    ## read string ##
-      $buf .= $_ if $is_join_lines;
-      my @t = m_split_buf($_);
-      $arr[-1] .= shift @t;
-      next if !@t;
 
-      if (!$is_multiline && (!m_empty_end($t[0]) || @t > 1)){
-        push @errors, Exceptions::TextFileError->new($self->{fname}, $l, 'wrong value of scalar variable');
-        $state = 1;
-        next;
+    ## read value ##
+    $is_first = 1; #< do not concatenate the first
+    while (length $s > 0 || $inside_string) {
+      if ($inside_string) {
+        if ($s =~ s/^((?:[^\\']|\\.)++)'//) {
+          # string finished
+          $parr->[-1] .= $1;
+          m_normalize_str($parr->[-1]);
+          $inside_string = 0;
+        }
+        else {
+          # string unfinished
+          $parr->[-1] .= $s."\n";
+          last;
+        }
       }
 
-      push @arr, @t;
-      next if (@t % 2 == 0);
-      $state = $is_multiline ? 2 : 1;
-    }
+      ## outside string ##
+      ## skip spaces and comments ##
+      $s =~ s/^(\s*)(?:#.*)?//; #< skip spaces and comments
+      last if length $s == 0;
+      $do_concat = !($1) && !$is_first;
 
-    ## add ##
-    if    ($state == 1){
-      shift @arr if @arr == 3;
-      $self->set_var($var, $arr[0]);
-    }
-    else{
-      if ($is_join_lines){
-        $self->{content}{$self->{cur_group}}{$var} .= $buf;
+      ## take next word ##
+      if ($s =~ s/^((?:[^\\'# \t]|\\.)++)//) {
+        # word taken
+        $do_concat ? $parr->[-1].=$1
+                   : push @$parr, $1;
+        m_normalize_str($parr->[-1]);
       }
-      else{
-        push @{$self->{content}{$self->{cur_group}}{$var}}
-             , map { $_ % 2 ? $arr[$_] : grep $_, split /\s+/, $arr[$_] } 0..$#arr;
+      elsif ($s =~ s/^'//) {
+        # string encountered
+        $inside_string = 1;
+        $str_beg_ln = $ln;
+        $do_concat or push @$parr, '';
       }
+      else {
+        push @errors, Exceptions::TextFileError->new($self->{fname}
+                        , $ln, "unexpected string '$s' encountered");
+      }
+      $is_first = 0;
     }
   }
 
-  if (!$state){
-    push @errors, Exceptions::TextFileError->new($self->{fname}, $l-1, "unclosed string (see from line $str_bl)");
+  if ($inside_string){
+    push @errors, Exceptions::TextFileError->new($self->{fname}, $ln-1, "unclosed string (see from line $str_beg_ln)");
   }
   close $f;
 
@@ -241,25 +240,23 @@ sub save
     my $gr = $self->{content}{$gr_name};
     print $f "\n[$gr_name]\n" if $gr_name;
     for (sort keys %$gr){
-      print $f "$_ = ", (ref $gr->{$_} ? (map "\n  ".m_shield_str($_), @{$gr->{$_}})
-                                       : m_shield_str($gr->{$_})
-                        ), "\n";
+      my $prefix = $self->{decl}->is_multiline($gr, $_) ? "\n  " : ' ';
+      print $f "$_ =", (map $prefix.m_shield_str($_), @{$gr->{$_}}), "\n";
     }
   }
   close $f;
 }
 
 sub file_name { $_[0]{fname} }
-sub get_all   { $_[0]{content} }
-sub get_group { $_[0]{content}{$_[1]} }
-sub get_var   { defined $_[0]{content}{$_[1]}{$_[2]} ? $_[0]{content}{$_[1]}{$_[2]} : $_[3] }
+sub get_var   { defined $_[0]{content}{$_[1]}{$_[2]} ? "@{$_[0]{content}{$_[1]}{$_[2]}}" : $_[3] }
+sub get_arr   { defined $_[0]{content}{$_[1]}{$_[2]} ? @{$_[0]{content}{$_[1]}{$_[2]}} : @_[3..$#_] }
 sub is_set    { defined $_[0]{content}{$_[1]}{$_[2]} }
 
 sub set_group { $_[0]{cur_group} = $#_ < 1 ? '' : $_[1] }
-sub set_var   { $_[0]{content}{$_[0]{cur_group}}{$_[1]} = $_[2] }
+sub set_var   { $_[0]{content}{$_[0]{cur_group}}{$_[1]} = [@_[2..$#_]] }
 sub set_var_if_not_exists
 {
-  $_[0]{content}{$_[0]{cur_group}}{$_[1]} = $_[2] if !exists $_[0]{content}{$_[0]{cur_group}}{$_[1]}
+  $_[0]{content}{$_[0]{cur_group}}{$_[1]} = [@_[2..$#_]] if !exists $_[0]{content}{$_[0]{cur_group}}{$_[1]}
 }
 sub skip_unrecognized_lines
 {
@@ -269,36 +266,11 @@ sub skip_unrecognized_lines
   $ret
 }
 
-sub m_q_ind
-{
-  my ($str, $i) = @_;
-  $i = @_ < 2 ? index $str, '\'' : index $str, '\'',  $i;
-  $i = index $str, '\'', $i+1 while $i >= 0 && (substr $str, 0, $i)=~/(^|[^\\])(\\\\)*\\$/;
-  $i
-}
-
-# @strs = m_split_buf($buf); ##< split $buf in string borders
-# example: "'abc' def'" => ('','abc',' def','')
-sub m_split_buf
-{
-  my $buf = shift;
-  my @ret;
-  while((my $i = m_q_ind($buf)) >= 0){
-    push @ret, m_normalize_str(substr($buf, 0, $i));
-    $buf = substr $buf, $i + 1;
-  }
-  push @ret, m_normalize_str($buf);
-  @ret
-}
-
-sub m_empty_end { !$_[0] || $_[0] =~ /^\s*\r?\n?$/ }
-
 # convert '\'' to ''' and '\\' to '\'
 sub m_normalize_str
 {
-  my $ret = shift;
-  $ret =~ s/\\(\\|\')/$1/g;
-  $ret
+  $_[0] =~ s/\\([\\\$' \t])/$1/g;
+  $_[0]
 }
 
 sub m_shield_str
@@ -338,17 +310,23 @@ Read and parse the file. All occurred discrepancies will be thrown as exceptions
 
 =item check_required(@hash)
 
-=item get_all
+=item get_var('group', 'variable', 'default value')
 
-Returns a hash reference = {group => [@variables], ...}
+Get group::variable value as a string.
+If the variable is not set, method returns 'default value'.
+
+=item get_arr('group', 'variable', @default_value)
+
+Get group::variable value as an array.
+If the variable is not set, method returns the array @default_value.
 
 =item set_group('group')
 
-Set current group to the specified value.
+Set current group to the specified name.
 
-=item set_var('variable', $value)
+=item set_var('variable', @value)
 
-Set value for the variable of the current group.
+Assign @value to the variable from the current group.
 
 =item save
 
