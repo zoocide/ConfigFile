@@ -6,7 +6,7 @@ use Exceptions::OpenFileError;
 use ConfigFileScheme;
 
 use vars qw($VERSION);
-$VERSION = '0.3.0';
+$VERSION = '0.4.0';
 
 =head1 NAME
 
@@ -122,9 +122,10 @@ sub load
 
   open(my $f, '<', $self->{fname}) || throw OpenFileError => $self->{fname};
 
+  $self->{interpolate} = 1;
   my $inside_string = 0;
   my $multiline = 0;
-  my ($ln, $s, $var, $gr, $parr, $str_beg_ln, $do_concat, $is_first);
+  my ($ln, $s, $var, $gr, $parr, $str_beg_ln, $do_concat, $is_first, $q);
   for ($ln = 0; $s = <$f>; $ln++) {
     #print $s;
     chomp $s;
@@ -164,11 +165,11 @@ sub load
     $is_first = 1; #< do not concatenate the first
     while (length $s > 0 || $inside_string) {
       if ($inside_string) {
-        if ($s =~ s/^((?:[^\\']|\\.)++)'//) {
+        if ($s =~ s/^((?:[^\\$q]|\\.)*+)$q//) {
           # string finished
-          $parr->[-1] .= $1;
-          m_normalize_str($parr->[-1]);
+          $parr->[-1] .= $self->m_interpolate_str($1);
           $inside_string = 0;
+          $self->{interpolate} = 1;
         }
         else {
           # string unfinished
@@ -184,14 +185,23 @@ sub load
       $do_concat = !($1) && !$is_first;
 
       ## take next word ##
-      if ($s =~ s/^((?:[^\\'# \t]|\\.)++)//) {
+      if ($s =~ s/^((?:[^\\'"# \t]|\\.)++)//) {
         # word taken
-        $do_concat ? $parr->[-1].=$1
-                   : push @$parr, $1;
-        m_normalize_str($parr->[-1]);
+        if ($do_concat) {
+          $parr->[-1] .= $self->m_interpolate_str($1);
+        }
+        elsif ($1 =~ /^\$({(?:(\w*)::)?)?(\w++)(?(1)})(?=\s|#|$)/) {
+          # array interpolation
+          push @$parr, $self->get_arr(defined $2 ? $2||'' : $self->{cur_group}, $3);
+        }
+        else {
+          push @$parr, $self->m_interpolate_str($1);
+        }
       }
-      elsif ($s =~ s/^'//) {
+      elsif ($s =~ s/^(['"])//) {
         # string encountered
+        $q = $1;
+        $self->{interpolate} = $q eq '"';
         $inside_string = 1;
         $str_beg_ln = $ln;
         $do_concat or push @$parr, '';
@@ -266,24 +276,99 @@ sub skip_unrecognized_lines
   $ret
 }
 
-# convert '\'' to ''' and '\\' to '\'
-sub m_normalize_str
+# $self->m_interpolate_str($str);
+sub m_interpolate_str
 {
-  $_[0] =~ s/\\([\\\$' \t])/$1/g;
-  $_[0]
+  my $self = shift;
+  my $str = shift;
+  if ($self->{interpolate}) {
+    $str =~ s/
+      # normalize string
+      \\([\\\$'#" \t])
+      |
+      # interpolate variables
+      \$({(?:(\w*)::)?)?(\w++)(?(2)})
+    /$1 || $self->get_var(defined $3 ? $3||'' : $self->{cur_group}, $4, '')/gex;
+  }
+  else {
+    # just normalize
+    $str =~ s/\\([\\\$'" \t])/$1/g;
+  }
+  $str
 }
 
 sub m_shield_str
 {
   my $ret = shift;
-  $ret =~ s/(\\|\')/\\$1/g;
-  $ret = '\''.$ret.'\'' if $ret =~ /\s/;
+  if ($ret =~ /\s|\n/) {
+    $ret =~ s/([\\'])/\\$1/g;
+    $ret = '\''.$ret.'\'';
+  }
+  else {
+    $ret =~ s/([\\'"\$#])/\\$1/g;
+  }
   $ret
 }
 
 1;
 
 __END__
+
+=head1 CONFIGURATION FILE
+
+File consist of groups and variables definition lines.
+One file line for one definition.
+Also, there can be blank lines and comment lines.
+Comments begins with # and ends with the line.
+
+=head2 Group
+
+C<[group_name]>
+
+I<group_name> is one word matching B<\w+> pattern.
+Group definition splits the file on sections.
+Each group has its own variables set.
+Different groups can have variables with the same name, but it still different
+variables.
+
+=head2 Variable
+
+C<var_name = value>
+
+I<var_name> is one word matching B<\w+> pattern.
+Value part of the string begins just after the assignment symbol and ends with
+the line.
+Value is a space separated list of words.
+There is special words such as string literal and variable substitution.
+Variable declaration parsed into a list of words, which can be accessed by the
+L</get_arr> and L</get_var> methods.
+By default, variable declaration ends with the line (except string literal,
+which can have line feeding inside), but there is special case when parser
+treats all next lines as the value part continuation until the next declaration
+occurred.
+This behaviour is enabled by telling the parser that variable is B<multiline>.
+
+=head3 Variables substitution
+
+C<$var> or C<${var}> or C<${group::var}>
+
+Once encountered such a construct it is replaced with the string value of the
+corresponding variable existing at that moment.
+In the first and second forms the group treated as the current group.
+If the whole word is the one variable substitution, this word will be replaced
+by the list value of the variable.
+
+=head3 String literal "", ''
+
+String literal begins with the qoute ' or " and ends with the corresponding
+quote.
+String literal is treated as one word.
+All spaces in quoted string are preserved.
+Symbol # inside the quoted string has no special meaning.
+Like in Perl inside a '' string parser will not interpolate variables and
+symbol \ will have special meaning only just before another \ or '.
+In double qouted string "" variables interpolation is enabled and symbol \ will
+shield any next symbol or have special meaning, like "\n".
 
 =head1 METHODS
 
@@ -333,5 +418,14 @@ Assign @value to the variable from the current group.
 Write configuration into file.
 
 =back
+
+=head1 AUTHOR
+
+Alexander Smirnov <zoocide@gmail.com>
+
+=head1 LICENSE
+
+This module is free software;
+you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 60;
+use Test::More tests => 134;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -100,6 +100,9 @@ eval {
   ok(!$conf->is_set('', 'var_not_existed'));
 
   check_config_file_rules($fname);
+  check_variables_substitution($fname);
+  check_shield_str($fname);
+  check_array($fname);
 };
 
 ## finally ##
@@ -187,12 +190,12 @@ EOF
   is($cf->get_var('gro_2', 'arr_1'), 'elm1', '[get_var]arr_1');
   is($cf->get_var('gro_2', 'arr_2'), 'elm1 elm2 complex element elm3 elm4 elm5', '[get_var]arr_2');
   is($cf->get_var('gro_2', 'arr_3'), 'elm1 elm2 elm3 elm4', '[get_var]arr_3');
-  is($cf->get_var('gro_2', 'a1'), 'a b c d \'e \\# f g', '[get_var]a1');
+  is($cf->get_var('gro_2', 'a1'), 'a b c d \'e \# f g', '[get_var]a1');
   is($cf->get_var('gro_2', 'a2'), "a b\n c\nd a word tail", '[get_var]a2');
   is_deeply([$cf->get_arr('gro_2', 'arr_1')], [qw(elm1)], 'arr_1');
   is_deeply([$cf->get_arr('gro_2', 'arr_2')], [qw(elm1 elm2), 'complex element', qw(elm3 elm4 elm5)], 'arr_2');
   is_deeply([$cf->get_arr('gro_2', 'arr_3')], [qw(elm1 elm2 elm3 elm4)], 'arr_3');
-  is_deeply([$cf->get_arr('gro_2', 'a1')], ['a', 'b', 'c d', '\'e', '\\# f', 'g'], 'a1');
+  is_deeply([$cf->get_arr('gro_2', 'a1')], ['a', 'b', 'c d', '\'e', '\# f', 'g'], 'a1');
   is_deeply([$cf->get_arr('gro_2', 'a2')], ["a b\n c\nd", 'a word', 'tail'], 'a2');
 }
 
@@ -209,30 +212,42 @@ v_str='first
 abc=a
   b
   c
-s0 = \${v}
-s1 = ${v}
-s2 = \'${v}\'
-s3 = ${v}${v}
-s4 = ${v1}
-s5 = ${v1}${v1}
-s6 = ++${v_str}${v}++
-s7 = ${v1}${a}
-s8 = ${a}
-s9 = ${a}${v_str}
-a=\"a b\"    #> [q."a., q.b".]
-b="command $a" #> [q.command "a b".]
-c=a$b #> [q.a"a b".].
+s0 = \${v}    #< no substitution
+s00= '$v${v}' #< no substitution
+s1 = $v       #< simple one word substitution
+s2 = \'${v}\' #< braced substitution with concatenation
+s3 = ${v}${v} #< braced twice substitution with concatenation
+s4 = ${v1}    #< braced list substitution
+s5 = ${v1}${v1} #< braced twice scalar substitution with concatenation
+s6 = ++$v_str${v}++ #< mixed scalar substitution with concatenation
+s7 = $v1$abc  #< simple twice scalar substitution with concatenation
+s8 = ${abc} $abc   #< braced multiline substitution
+s9 = $abc${v_str} #< mixed substitution with concatenation
+a=\"a b\"     #> [q."a., q.b".]
+b="command $a"#> [q.command "a b".]
+c=a$a         #> [q.a"a b".].
+[gr]
+a=aa
+b=$a${::a}${gr::a} #> [q.aa"a b"aa.]
+[gr2]
+v=\#
+v1=$ $$
+v2=$
+v3=v
+v4=$v2''$v3''$v2''$v3
+a=$v${v}${::v}${gr::a}${gr2::v} #> [q.##abcaa#.]
 EOF
-  my $conf = ConfigFile->new($fname, multiline => {'' => [qw(v1 a s9)]});
+  my $conf = ConfigFile->new($fname, multiline => {'' => [qw(abc s9)]});
   eval{ $conf->load };
   ok(!$@, 'config file with substitutions');
   diag("$@") if $@;
 
   is($conf->get_var('', 'v'), 'abc', 'variable v');
-  is_deeply($conf->get_var('', 'v1'), [qw(a b c)], 'array v1');
+  is($conf->get_var('', 'v1'), 'a b c', 'array v1');
   is($conf->get_var('', 'v_str'), "first\n last", 'variable v_str');
-  is_deeply($conf->get_var('', 'abc'), [qw(a b c)], 'array a');
+  is($conf->get_var('', 'abc'), 'a b c', 'array a');
   is($conf->get_var('', 's0'), '${v}', 's0');
+  is($conf->get_var('', 's00'), '$v${v}', 's00');
   is($conf->get_var('', 's1'), 'abc', 's1');
   is($conf->get_var('', 's2'), '\'abc\'', 's2');
   is($conf->get_var('', 's3'), 'abcabc', 's3');
@@ -240,6 +255,94 @@ EOF
   is($conf->get_var('', 's5'), 'a b ca b c', 's5');
   is($conf->get_var('', 's6'), "++first\n lastabc++", 's6');
   is($conf->get_var('', 's7'), 'a b ca b c', 's7');
-  is($conf->get_var('', 's8'), 'a b c', 's8');
-  is_deeply($conf->get_var('', 's9'), ['a', 'b', 'c', 'first\n last'], 's9');
+  is($conf->get_var('', 's8'), 'a b c a b c', 's8');
+  is($conf->get_var('', 's9'), "a b cfirst\n last", 's9');
+  is($conf->get_var('', 'a'), '"a b"', 'a');
+  is($conf->get_var('', 'b'), 'command "a b"', 'b');
+  is($conf->get_var('', 'c'), 'a"a b"', 'c');
+  is($conf->get_var('gr', 'a'), 'aa', 'gr::a');
+  is($conf->get_var('gr', 'b'), 'aa"a b"aa', 'gr::b');
+  is($conf->get_var('gr2', 'v'), '#', 'gr2::v');
+  is($conf->get_var('gr2', 'v1'), '$ $$', 'gr2::v1');
+  is($conf->get_var('gr2', 'v2'), '$', 'gr2::v2');
+  is($conf->get_var('gr2', 'v4'), '$v$v', 'gr2::v4');
+  is($conf->get_var('gr2', 'a'), '##abcaa#', 'gr2::a');
+  is($conf->get_var('', 's9'), "a b cfirst\n last", 's9');
+  is_deeply([$conf->get_arr('', 'v' )], ['abc']);
+  is_deeply([$conf->get_arr('', 'v1')], [qw(a b c)]);
+  is_deeply([$conf->get_arr('', 'v_str')], ["first\n last"]);
+  is_deeply([$conf->get_arr('', 'abc')], [qw(a b c)]);
+  is_deeply([$conf->get_arr('', 's0')], ['${v}']);
+  is_deeply([$conf->get_arr('', 's00')], ['$v${v}']);
+  is_deeply([$conf->get_arr('', 's1')], ['abc']);
+  is_deeply([$conf->get_arr('', 's2')], ['\'abc\'']);
+  is_deeply([$conf->get_arr('', 's3')], ['abcabc']);
+  is_deeply([$conf->get_arr('', 's4')], [qw(a b c)]);
+  is_deeply([$conf->get_arr('', 's5')], ['a b ca b c']);
+  is_deeply([$conf->get_arr('', 's6')], ["++first\n lastabc++"]);
+  is_deeply([$conf->get_arr('', 's7')], ['a b ca b c']);
+  is_deeply([$conf->get_arr('', 's8')], [qw(a b c a b c)]);
+  is_deeply([$conf->get_arr('', 's9')], ["a b cfirst\n last"]);
+  is_deeply([$conf->get_arr('', 'a')], [qw("a b")]);
+  is_deeply([$conf->get_arr('', 'b')], ['command "a b"']);
+  is_deeply([$conf->get_arr('', 'c')], ['a"a b"']);
+  is_deeply([$conf->get_arr('gr', 'a')], ['aa']);
+  is_deeply([$conf->get_arr('gr', 'b')], ['aa"a b"aa']);
+  is_deeply([$conf->get_arr('gr2', 'v')], ['#']);
+  is_deeply([$conf->get_arr('gr2', 'v1')], [qw($ $$)]);
+  is_deeply([$conf->get_arr('gr2', 'a')], ['##abcaa#']);
+}
+
+sub check_shield_str
+{
+  my $fname = shift;
+  my $conf = ConfigFile->new($fname);
+
+  my %vars = (
+    v0 => '',
+    v1 => 'word',
+    v2 => 'two words',
+    v3 => '$',
+    v4 => '#it is not a comment',
+    v5 => '\\',
+    v6 => q.'quotes'.,
+    v7 => '"double quotes"',
+    v8 => '\'',
+    v9 => '"',
+    v10 => '$$',
+    v11 => "\n",
+    v12 => "a\n",
+    v13 => " \n",
+    v14 => "\n ",
+    v15 => "\n \n",
+    v16 => "\n\n",
+  );
+  $conf->set_var($_ => $vars{$_}) for keys %vars;
+  $conf->save;
+
+  eval{ $conf->load };
+  ok(!$@, 'check_shield_str: config file loaded');
+  diag("$@") if $@;
+  is($conf->get_var('', $_), $vars{$_}, $_) for sort keys %vars;
+}
+
+sub check_array
+{
+  my $fname = shift;
+  my %vars = (
+    v0 => [qw()],
+    v1 => [qw(word)],
+    v2 => [qw(two words)],
+    v3 => ['#it', qw(is not a comment), '\#'],
+    v4 => [qw(list with string), "a string\n###"],
+  );
+
+  my $conf = ConfigFile->new($fname);
+  $conf->set_var($_ => @{$vars{$_}}) for keys %vars;
+  $conf->save;
+
+  eval{ $conf->load };
+  ok(!$@, 'check_array: config file loaded');
+  diag("$@") if $@;
+  is_deeply([$conf->get_arr('', $_)], $vars{$_}, $_) for sort keys %vars;
 }
