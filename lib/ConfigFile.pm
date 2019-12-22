@@ -8,6 +8,13 @@ use ConfigFileScheme;
 use vars qw($VERSION);
 $VERSION = '0.4.0';
 
+# TODO: CONFIGURATION FILE: make variable multiline by 'var @= value'
+# TODO: substitute special symbols \n, \t
+# TODO: shield line feeding by placing \ at the end of line.
+# TODO: allow change comment symbol to ;
+# TODO: allow preset variables for file parsing.
+
+
 =head1 NAME
 
 ConfigFile - read and write configuration files aka '.ini'.
