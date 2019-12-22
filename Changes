@@ -1,4 +1,21 @@
 Revision history for Perl extension ConfigFile.
+0.4.0
+    + add variables interpolation
+    + add double quoted strings ""
+    + add more tests
+    + fix save method
+    + add POD ot ConfigFile.pm
+
+0.3.0
+Reworked variables concept.
+    + added get_arr method.
+    + changed variable definition.
+    + changed load method.
+    + changed save method.
+    + chagned get_var method.
+    + chagned set_var method.
+    + removed get_all method.
+    + removed get_group method.
 
 0.2.0
   Make this separate module package from the existing repository http://github.com/zoocide/pts.
