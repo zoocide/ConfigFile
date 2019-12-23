@@ -6,7 +6,7 @@ use Exceptions::OpenFileError;
 use ConfigFileScheme;
 
 use vars qw($VERSION);
-$VERSION = '0.4.0';
+$VERSION = '0.5.0';
 
 # TODO: allow change comment symbol to ;
 
@@ -435,10 +435,11 @@ File consist of groups and variables definition lines.
 One file line for one definition.
 Also, there can be blank lines and comment lines.
 Comments begins with # and ends with the line.
+Two lines can be joined by placing a I<\> at the end of the first one.
 
 =head2 Group
 
-C<[group_name]>
+ [group_name]
 
 I<group_name> is one word matching B<\w+> pattern.
 Group definition splits the file on sections.
@@ -448,7 +449,11 @@ variables.
 
 =head2 Variable
 
-C<var_name = value>
+ var_name = value
+ # or
+ var_name @= elem1 elem2
+ elem3
+ ...
 
 I<var_name> is one word matching B<\w+> pattern.
 Value part of the string begins just after the assignment symbol and ends with
@@ -461,11 +466,12 @@ By default, variable declaration ends with the line (except string literal,
 which can have line feeding inside), but there is special case when parser
 treats all next lines as the value part continuation until the next declaration
 occurred.
-This behaviour is enabled by telling the parser that variable is B<multiline>.
+This behaviour is enabled by telling the parser that variable is B<multiline>
+or by using the variable declaration second form (C<var_name @= ...>).
 
 =head3 Variables substitution
 
-C<$var> or C<${var}> or C<${group::var}>
+ $var or ${var} or ${group::var}
 
 Once encountered such a construct it is replaced with the string value of the
 corresponding variable existing at that moment.
@@ -502,13 +508,19 @@ shield any next symbol or have special meaning, like "\n".
 
 =item load
 
-Read and parse the file. All occurred discrepancies will be thrown as exceptions.
+Read and parse the file. All occurred errors will be thrown as exceptions.
+If used in list context, it returns parse errors as a list, but open file error
+will be thrown.
 
 =item check_required
 
 =item check_required($hash)
 
-=item check_required(@hash)
+=item check_required(%hash)
+
+This method checks all required variables are set.
+As the parameter it can recieve I<required> part of the scheme.
+This method is included into L</load> method.
 
 =item group_names
 
@@ -526,7 +538,7 @@ If the variable is not set, method returns 'default value'.
 =item get_arr('group', 'variable', @default_value)
 
 Get group::variable value as an array.
-If the variable is not set, method returns the array @default_value.
+If the variable is not set, method returns @default_value.
 
 =item set_group('group')
 
@@ -539,6 +551,10 @@ Assign @value to the variable from the current group.
 =item save
 
 Write configuration into file.
+
+=item erase
+
+Remove all variables and groups. Also it resets current group to default value.
 
 =back
 
