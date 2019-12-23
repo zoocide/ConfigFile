@@ -8,7 +8,6 @@ use ConfigFileScheme;
 use vars qw($VERSION);
 $VERSION = '0.4.0';
 
-# TODO: substitute special symbols \n, \t
 # TODO: shield line feeding by placing \ at the end of line.
 # TODO: allow change comment symbol to ;
 # TODO: allow preset variables for file parsing.
@@ -133,11 +132,11 @@ sub load2
     my $str = shift;
     $str =~ s/
       # normalize string
-      \\([\\\$'#" \t])
+      \\(n) | \\(t) | \\(.)
       |
       # interpolate variables
-      \$({(?:(\w*)::)?)?(\w++)(?(2)})
-    /$1 || $self->get_var(defined $3 ? $3||'' : $gr, $4, '')/gex;
+      \$({(?:(\w*)::)?)?(\w++)(?(4)})
+    /$1 ? "\n" : $2 ? "\t" : $3 ? $3 : $self->get_var(defined $5 ? $5||'' : $gr, $6, '')/gex;
     $str
   };
   my $normalize_str = sub {
@@ -273,11 +272,11 @@ sub load
     my $str = shift;
     $str =~ s/
       # normalize string
-      \\([\\\$'#" \t])
+      \\(n) | \\(t) | \\(.)
       |
       # interpolate variables
-      \$({(?:(\w*)::)?)?(\w++)(?(2)})
-    /$1 || $self->get_var(defined $3 ? $3||'' : $gr, $4, '')/gex;
+      \$({(?:(\w*)::)?)?(\w++)(?(4)})
+    /$1 ? "\n" : $2 ? "\t" : $3 ? $3 : $self->get_var(defined $5 ? $5||'' : $gr, $6, '')/gex;
     $str
   };
   my $normalize_str = sub {

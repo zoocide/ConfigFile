@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 143;
+use Test::More tests => 144;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -161,6 +161,7 @@ var_5 = 'a complex
 
  new lines are saved in this string
   value'
+qq_str = "\\n\\\\\\t"
 [gro_2]
 var_6 = head \\'complex  value\\'
 var_7 = \\\\n is not a new line
@@ -188,6 +189,7 @@ EOF
   is($cf->get_var('group', 'var_2'), '  a complex value  ', 'var_2');
   is($cf->get_var('group', 'var_5'), "a complex\n     # this is a part of the ".
     "string\n\n new lines are saved in this string\n  value", 'var_5');
+  is($cf->get_var('group', 'qq_str'), "\n\\\t", 'qq_str');
   is($cf->get_var('gro_2', 'var_6'), 'head \'complex value\'', 'var_6');
   is($cf->get_var('gro_2', 'var_7'), '\\n is not a new line', 'var_7');
   is($cf->get_var('gro_2', 'var_8'), '', 'var_8');
