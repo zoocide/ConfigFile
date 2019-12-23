@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 135;
+use Test::More tests => 136;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -212,6 +212,9 @@ v_str='first
 abc=a
   b
   c
+q_text = ' $abc
+ $v
+ end $v' #<[" \$abc\n \$v\n end \$v"]
 qq_text = " $abc
  $v
  end $v" #<[" a b c\n abc\n end abc"]
@@ -249,6 +252,7 @@ EOF
   is($conf->get_var('', 'v1'), 'a b c', 'array v1');
   is($conf->get_var('', 'v_str'), "first\n last", 'variable v_str');
   is($conf->get_var('', 'abc'), 'a b c', 'array a');
+  is($conf->get_var('', 'q_text'), " \$abc\n \$v\n end \$v", 'q_text');
   is($conf->get_var('', 'qq_text'), " a b c\n abc\n end abc", 'qq_text');
   is($conf->get_var('', 's0'), '${v}', 's0');
   is($conf->get_var('', 's00'), '$v${v}', 's00');
