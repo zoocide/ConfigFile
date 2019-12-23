@@ -311,6 +311,7 @@ sub load
   })|$qq_str_end))*+$>;
   my $var_decl_beg = qr~^\s*(\w+)\s*=(?{
     $var = $1;
+    next if !$decl->is_valid($gr, $var);
     $self->{content}{$gr}{$var}= $parr = [];
     $multiline = $decl->is_multiline($gr, $var);
   })~;

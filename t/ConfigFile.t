@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 136;
+use Test::More tests => 142;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -103,6 +103,7 @@ eval {
   check_variables_substitution($fname);
   check_shield_str($fname);
   check_array($fname);
+  check_scheme($fname);
 };
 
 ## finally ##
@@ -355,4 +356,30 @@ sub check_array
   ok(!$@, 'check_array: config file loaded');
   diag("$@") if $@;
   is_deeply([$conf->get_arr('', $_)], $vars{$_}, $_) for sort keys %vars;
+}
+
+sub load_file
+{
+  my ($fname, $text, @scheme) = @_;
+  fill_file($fname, $text);
+  my $conf = ConfigFile->new($fname, @scheme);
+  eval{ $conf->load };
+  $@ ? "$@" : ''
+}
+
+sub check_scheme
+{
+  my $fname = shift;
+  is(load_file($fname, <<'EOF', multiline => {'' => [qw(a)]}), '');
+a = 1
+2
+EOF
+  isnt(load_file($fname, <<'EOF'), '');
+a = 1
+2
+EOF
+  is(load_file($fname, 'a=1', required => {'' => [qw(a)]}), '');
+  isnt(load_file($fname, 'a=1', required => {'' => [qw(b)]}), '');
+  is(load_file($fname, 'a=1', strict => 1, struct => {'' => [qw(a)]}), '');
+  isnt(load_file($fname, 'b=1', strict => 1, struct => {'' => [qw(a)]}), '');
 }
