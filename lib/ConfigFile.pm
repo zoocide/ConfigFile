@@ -129,12 +129,28 @@ sub load
 
   open(my $f, '<', $self->{fname}) || throw OpenFileError => $self->{fname};
 
-  $self->{interpolate} = 1;
+  my $gr = '';
+  my $interpolate_str = sub {
+    my $str = shift;
+    $str =~ s/
+      # normalize string
+      \\([\\\$'#" \t])
+      |
+      # interpolate variables
+      \$({(?:(\w*)::)?)?(\w++)(?(2)})
+    /$1 || $self->get_var(defined $3 ? $3||'' : $gr, $4, '')/gex;
+    $str
+  };
+  my $normalize_str = sub {
+    my $str = shift;
+    $str =~ s/\\([\\\$'" \t])/$1/g;
+    $str
+  };
+  my $interpolate = 1;
   my $inside_string = 0;
   my $multiline = 0;
-  my ($ln, $s, $var, $gr, $parr, $str_beg_ln, $do_concat, $is_first, $q);
+  my ($ln, $s, $var, $parr, $str_beg_ln, $do_concat, $is_first, $q);
   for ($ln = 0; $s = <$f>; $ln++) {
-    #print $s;
     chomp $s;
     if (!$inside_string) {
       ## determine expression type ##
@@ -144,7 +160,7 @@ sub load
       }
       elsif ($s =~ /^\s*\[(\w+)\]\s*$/) {
         # group declaration
-        $self->set_group($gr = $1);
+        $gr = $1;
         $multiline = 0;
         next;
       }
@@ -174,13 +190,13 @@ sub load
       if ($inside_string) {
         if ($s =~ s/^((?:[^\\$q]|\\.)*+)$q//) {
           # string finished
-          $parr->[-1] .= $self->m_interpolate_str($1);
+          $parr->[-1] .= $interpolate ? &$interpolate_str($1) : &$normalize_str($1);
           $inside_string = 0;
-          $self->{interpolate} = 1;
+          $interpolate = 1;
         }
         else {
           # string unfinished
-          $parr->[-1] .= $self->m_interpolate_str($s)."\n";
+          $parr->[-1] .= ($interpolate ? &$interpolate_str($s) : &$normalize_str($s))."\n";
           last;
         }
       }
@@ -195,20 +211,20 @@ sub load
       if ($s =~ s/^((?:[^\\'"# \t]|\\.)++)//) {
         # word taken
         if ($do_concat) {
-          $parr->[-1] .= $self->m_interpolate_str($1);
+          $parr->[-1] .= &$interpolate_str($1);
         }
         elsif ($1 =~ /^\$({(?:(\w*)::)?)?(\w++)(?(1)})(?=\s|#|$)/) {
           # array interpolation
-          push @$parr, $self->get_arr(defined $2 ? $2||'' : $self->{cur_group}, $3);
+          push @$parr, $self->get_arr(defined $2 ? $2||'' : $gr, $3);
         }
         else {
-          push @$parr, $self->m_interpolate_str($1);
+          push @$parr, &$interpolate_str($1);
         }
       }
       elsif ($s =~ s/^(['"])//) {
         # string encountered
         $q = $1;
-        $self->{interpolate} = $q eq '"';
+        $interpolate = $q eq '"';
         $inside_string = 1;
         $str_beg_ln = $ln;
         $do_concat or push @$parr, '';
@@ -247,19 +263,35 @@ sub load2
 
   open(my $f, '<', $self->{fname}) || throw OpenFileError => $self->{fname};
 
-  $self->{interpolate} = 1;
   my $inside_string = 0;
   my $multiline = 0;
   my $gr = '';
   my $do_concat = 0;
   my ($ln, $s, $var, $parr, $str_beg_ln, $is_first, $q);
   my $add_word = sub { $do_concat ? $parr->[-1] .= $_[0] : push @$parr, $_[0]; $do_concat = 1 };
+
+  my $interpolate_str = sub {
+    my $str = shift;
+    $str =~ s/
+      # normalize string
+      \\([\\\$'#" \t])
+      |
+      # interpolate variables
+      \$({(?:(\w*)::)?)?(\w++)(?(2)})
+    /$1 || $self->get_var(defined $3 ? $3||'' : $gr, $4, '')/gex;
+    $str
+  };
+  my $normalize_str = sub {
+    my $str = shift;
+    $str =~ s/\\([\\\$'" \t])/$1/g;
+    $str
+  };
   my $space = qr~(?:\s++|#.*|\r?\n)\r?\n?(?{ $do_concat = 0 })~s;
-  my $normal_word = qr~((?:[^\\\'"# \t\n]|\\.)++)(?{ &$add_word($self->m_interpolate_str($^N)) })~;
-  my $q_str_beg  = qr~'((?:[^\\']|\\.)*+)(?{ $self->{interpolate} = 0; &$add_word($self->m_interpolate_str($^N)) })~s;
-  my $qq_str_beg = qr~"((?:[^\\"]|\\.)*+)(?{ &$add_word($self->m_interpolate_str($^N)) })~s;
-  my $q_str_end  = qr~((?:[^\\']|\\.)*+)'(?{ $parr->[-1].=$self->m_interpolate_str($^N); $self->{interpolate}=1;})~s;
-  my $qq_str_end = qr~((?:[^\\"]|\\.)*+)"(?{ $parr->[-1].=$self->m_interpolate_str($^N)})~s;
+  my $normal_word = qr~((?:[^\\\'"# \t\n]|\\.)++)(?{ &$add_word(&$interpolate_str($^N)) })~;
+  my $q_str_beg  = qr~'((?:[^\\']|\\.)*+)(?{ &$add_word(&$normalize_str($^N)) })~s;
+  my $qq_str_beg = qr~"((?:[^\\"]|\\.)*+)(?{ &$add_word(&$interpolate_str($^N)) })~s;
+  my $q_str_end  = qr~((?:[^\\']|\\.)*+)'(?{ $parr->[-1].=&$normalize_str($^N); })~s;
+  my $qq_str_end = qr~((?:[^\\"]|\\.)*+)"(?{ $parr->[-1].=&$interpolate_str($^N)})~s;
   my $q_str = qr<$q_str_beg$q_str_end>;
   my $qq_str = qr<$qq_str_beg$qq_str_end>;
   my ($vg, $vn);
@@ -287,7 +319,7 @@ sub load2
       # skip comment and blank string
       next if $s =~ /^\s*(#|$)/;
       # process group declaration
-      next if $s =~ /^\s*\[(\w+)\]\s*$(?{$self->set_group($gr = $1); $multiline = 0})/;
+      next if $s =~ /^\s*\[(\w+)\]\s*$(?{$gr = $1; $multiline = 0})/;
       # process variable declaration
       if ($s =~ s/$var_decl_beg// || $multiline) {
         if ($s !~ /$value_part/) {
@@ -307,7 +339,7 @@ sub load2
       # read string
       if (!($q eq '\'' && $s =~ s/$q_str_end// || $q eq '"' && $s =~ s/$qq_str_end//)) {
         # string is not finished
-        $parr->[-1] .= $self->m_interpolate_str($s);
+        $parr->[-1] .= $q eq '"' ? &$interpolate_str($s) : &$normalize_str($s);
         next;
       }
       $inside_string = 0;
@@ -380,27 +412,6 @@ sub skip_unrecognized_lines
   $ret
 }
 sub erase { $_[0]{content} = {}; $_[0]{cur_group} = ''; }
-
-# $self->m_interpolate_str($str);
-sub m_interpolate_str
-{
-  my $self = shift;
-  my $str = shift;
-  if ($self->{interpolate}) {
-    $str =~ s/
-      # normalize string
-      \\([\\\$'#" \t])
-      |
-      # interpolate variables
-      \$({(?:(\w*)::)?)?(\w++)(?(2)})
-    /$1 || $self->get_var(defined $3 ? $3||'' : $self->{cur_group}, $4, '')/gex;
-  }
-  else {
-    # just normalize
-    $str =~ s/\\([\\\$'" \t])/$1/g;
-  }
-  $str
-}
 
 sub m_shield_str
 {
