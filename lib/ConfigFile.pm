@@ -397,6 +397,8 @@ sub file_name { $_[0]{fname} }
 sub get_var   { exists $_[0]{content}{$_[1]}{$_[2]} ? "@{$_[0]{content}{$_[1]}{$_[2]}}" : $_[3] }
 sub get_arr   { exists $_[0]{content}{$_[1]}{$_[2]} ? @{$_[0]{content}{$_[1]}{$_[2]}} : @_[3..$#_] }
 sub is_set    { exists $_[0]{content}{$_[1]}{$_[2]} }
+sub group_names { keys %{$_[0]{content}} }
+sub var_names { exists $_[0]{content}{$_[1]} ? keys %{$_[0]{content}{$_[1]}} : () }
 
 sub set_group { $_[0]{cur_group} = $#_ < 1 ? '' : $_[1] }
 sub set_var   { $_[0]{content}{$_[0]{cur_group}}{$_[1]} = [@_[2..$#_]] }
@@ -510,6 +512,14 @@ Read and parse the file. All occurred discrepancies will be thrown as exceptions
 =item check_required($hash)
 
 =item check_required(@hash)
+
+=item group_names
+
+Method returns an array of all group names.
+
+=item var_names('group')
+
+Method returns an array of all variable names from the specified group.
 
 =item get_var('group', 'variable', 'default value')
 
