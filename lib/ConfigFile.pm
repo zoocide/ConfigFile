@@ -239,6 +239,104 @@ sub load
   }
 }
 
+sub load2
+{
+  my $self = shift;
+  my $decl = $self->{decl};
+  my @errors;
+
+  open(my $f, '<', $self->{fname}) || throw OpenFileError => $self->{fname};
+
+  $self->{interpolate} = 1;
+  my $inside_string = 0;
+  my $multiline = 0;
+  my $gr = '';
+  my $do_concat = 0;
+  my ($ln, $s, $var, $parr, $str_beg_ln, $is_first, $q);
+  my $add_word = sub { $do_concat ? $parr->[-1] .= $_[0] : push @$parr, $_[0]; $do_concat = 1 };
+  my $space = qr~(?:\s++|#.*|\r?\n)\r?\n?(?{ $do_concat = 0 })~s;
+  my $normal_word = qr~((?:[^\\\'"# \t\n]|\\.)++)(?{ &$add_word($self->m_interpolate_str($^N)) })~;
+  my $q_str_beg  = qr~'((?:[^\\']|\\.)*+)(?{ $self->{interpolate} = 0; &$add_word($self->m_interpolate_str($^N)) })~s;
+  my $qq_str_beg = qr~"((?:[^\\"]|\\.)*+)(?{ &$add_word($self->m_interpolate_str($^N)) })~s;
+  my $q_str_end  = qr~((?:[^\\']|\\.)*+)'(?{ $parr->[-1].=$self->m_interpolate_str($^N); $self->{interpolate}=1;})~s;
+  my $qq_str_end = qr~((?:[^\\"]|\\.)*+)"(?{ $parr->[-1].=$self->m_interpolate_str($^N)})~s;
+  my $q_str = qr<$q_str_beg$q_str_end>;
+  my $qq_str = qr<$qq_str_beg$qq_str_end>;
+  my ($vg, $vn);
+  my $as_vn = qr<(\w++)(?{$vn = $^N})>;
+  my $as_vg = qr<(?:(\w*)::(?{$vg = $^N})|(?{$vg = $gr}))>;
+  my $array_substitution = qr~(?(?{$do_concat})(?!))\$(?:{$as_vg$as_vn}|$as_vn)$space(?{
+    print "LIST SUBSTITUTION '$s'\n";
+    push @$parr, $self->get_arr($vg, $vn);
+  })~;
+  my $value_part = qr<^(?:$array_substitution|$space|$normal_word|$q_str_beg(?:$(?{
+    $q = '\'';
+    $str_beg_ln = $ln;
+    $inside_string = 1;
+  })|$q_str_end)|$qq_str_beg(?:$(?{
+    $q = '"';
+    $str_beg_ln = $ln;
+    $inside_string = 1;
+  })|$qq_str_end))*+$>;
+  my $var_decl_beg = qr~^\s*(\w+)\s*=(?{
+    $var = $1;
+    $self->{content}{$gr}{$var}= $parr = [];
+    $multiline = $decl->is_multiline($gr, $var);
+  })~;
+  for ($ln = 0; $s = <$f>; $ln++) {
+    if (!$inside_string) {
+      # skip comment and blank string
+      next if $s =~ /^\s*(#|$)/;
+      # process group declaration
+      next if $s =~ /^\s*\[(\w+)\]\s*$(?{$self->set_group($gr = $1); $multiline = 0})/;
+      # process variable declaration
+      if ($s =~ s/$var_decl_beg// || $multiline) {
+        if ($s !~ /$value_part/) {
+          push @errors, Exceptions::TextFileError->new($self->{fname}
+                      , $ln, "unexpected string '$s' encountered");
+        }
+      }
+      else {
+        # unrecognized string
+        $self->{skip_unrecognized_lines} ||
+            push @errors, Exceptions::TextFileError->new($self->{fname}
+                        , $ln, "unrecognized line '$s'");
+        next;
+      }
+    }
+    else {
+      # read string
+      if (!($q eq '\'' && $s =~ s/$q_str_end// || $q eq '"' && $s =~ s/$qq_str_end//)) {
+        # string is not finished
+        $parr->[-1] .= $self->m_interpolate_str($s);
+        next;
+      }
+      $inside_string = 0;
+      if ($s !~ /$value_part/) {
+        push @errors, Exceptions::TextFileError->new($self->{fname}
+                    , $ln, "unexpected string '$s' encountered");
+      }
+    }
+  }
+
+  if ($inside_string){
+    push @errors, Exceptions::TextFileError->new($self->{fname}, $ln-1, "unclosed string (see from line $str_beg_ln)");
+  }
+  close $f;
+
+  try{
+    $self->check_required;
+  }
+  catch{
+    push @errors, @{$@};
+  } 'List';
+
+  if (@errors){
+    return @errors if wantarray;
+    throw List => @errors;
+  }
+}
+
 # throws: Exceptions::List
 sub check_required
 {
