@@ -10,7 +10,6 @@ $VERSION = '0.4.0';
 
 # TODO: shield line feeding by placing \ at the end of line.
 # TODO: allow change comment symbol to ;
-# TODO: allow preset variables for file parsing.
 
 
 =head1 NAME

@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 144;
+use Test::More tests => 146;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -152,6 +152,7 @@ sub check_config_file_rules
   ## OK ##
   my $space = ' '; #< prevents accidentally removing space at the end of line
   fill_file($fname, <<EOF);
+v=1
 [group]
 var_1 = a  complex value$space
   # comment string
@@ -182,9 +183,13 @@ a2 = 'a b
 d' 'a 'word  tail
 EOF
   my $cf = ConfigFile->new($fname, multiline=>{'gro_2'=>[qw(arr_2 arr_3 a2)]});
+  $cf->set_group('args');
+  $cf->set_var('preset_var', 'value');
   eval{ $cf->load };
   ok(!$@, 'OK config file loaded');
   diag("$@") if $@;
+  is($cf->get_var('', 'v'), '1');
+  is($cf->get_var('args', 'preset_var'), 'value', 'preset_var');
   is($cf->get_var('group', 'var_1'), 'a complex value', 'var_1');
   is($cf->get_var('group', 'var_2'), '  a complex value  ', 'var_2');
   is($cf->get_var('group', 'var_5'), "a complex\n     # this is a part of the ".
