@@ -311,6 +311,7 @@ sub load
     next if !$decl->is_valid($gr, $var);
     $self->{content}{$gr}{$var}= $parr = [];
     $multiline = $decl->is_multiline($gr, $var) || $2;
+    $do_concat = 0;
   })~;
   for ($ln = 1; $s = <$f>; $ln++) {
     if (!$inside_string) {
