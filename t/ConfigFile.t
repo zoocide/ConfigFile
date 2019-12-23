@@ -320,6 +320,7 @@ sub check_shield_str
   $conf->set_var($_ => $vars{$_}) for keys %vars;
   $conf->save;
 
+  $conf = ConfigFile->new($fname);
   eval{ $conf->load };
   ok(!$@, 'check_shield_str: config file loaded');
   diag("$@") if $@;
@@ -341,6 +342,7 @@ sub check_array
   $conf->set_var($_ => @{$vars{$_}}) for keys %vars;
   $conf->save;
 
+  $conf = ConfigFile->new($fname);
   eval{ $conf->load };
   ok(!$@, 'check_array: config file loaded');
   diag("$@") if $@;
