@@ -205,7 +205,7 @@ sub load2
       $do_concat = !($1) && !$is_first;
 
       ## take next word ##
-      if ($s =~ s/^((?:[^\\'"# \t]|\\.)++)//) {
+      if ($s =~ s/^((?:[^\\'"# \t]|\\(?:.|$))++)//) {
         # word taken
         if ($do_concat) {
           $parr->[-1] .= &$interpolate_str($1);
@@ -284,11 +284,11 @@ sub load
     $str
   };
   my $space = qr~(?:\s++|#.*|\r?\n)\r?\n?(?{ $do_concat = 0 })~s;
-  my $normal_word = qr~((?:[^\\\'"# \t\n]|\\.)++)(?{ &$add_word(&$interpolate_str($^N)) })~;
-  my $q_str_beg  = qr~'((?:[^\\']|\\.)*+)(?{ &$add_word(&$normalize_str($^N)) })~s;
-  my $qq_str_beg = qr~"((?:[^\\"]|\\.)*+)(?{ &$add_word(&$interpolate_str($^N)) })~s;
-  my $q_str_end  = qr~((?:[^\\']|\\.)*+)'(?{ $parr->[-1].=&$normalize_str($^N); })~s;
-  my $qq_str_end = qr~((?:[^\\"]|\\.)*+)"(?{ $parr->[-1].=&$interpolate_str($^N)})~s;
+  my $normal_word = qr~((?:[^\\\'"# \t\n]|\\(?:.|$))++)(?{ &$add_word(&$interpolate_str($^N)) })~s;
+  my $q_str_beg  = qr~'((?:[^\\']|\\(?:.|$))*+)(?{ &$add_word(&$normalize_str($^N)) })~s;
+  my $qq_str_beg = qr~"((?:[^\\"]|\\(?:.|$))*+)(?{ &$add_word(&$interpolate_str($^N)) })~s;
+  my $q_str_end  = qr~((?:[^\\']|\\(?:.|$))*+)'(?{ $parr->[-1].=&$normalize_str($^N); })~s;
+  my $qq_str_end = qr~((?:[^\\"]|\\(?:.|$))*+)"(?{ $parr->[-1].=&$interpolate_str($^N)})~s;
   my $q_str = qr<$q_str_beg$q_str_end>;
   my $qq_str = qr<$qq_str_beg$qq_str_end>;
   my ($vg, $vn);
