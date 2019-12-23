@@ -180,7 +180,7 @@ sub load
         }
         else {
           # string unfinished
-          $parr->[-1] .= $s."\n";
+          $parr->[-1] .= $self->m_interpolate_str($s)."\n";
           last;
         }
       }
