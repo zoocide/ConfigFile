@@ -394,9 +394,9 @@ sub save
 }
 
 sub file_name { $_[0]{fname} }
-sub get_var   { defined $_[0]{content}{$_[1]}{$_[2]} ? "@{$_[0]{content}{$_[1]}{$_[2]}}" : $_[3] }
-sub get_arr   { defined $_[0]{content}{$_[1]}{$_[2]} ? @{$_[0]{content}{$_[1]}{$_[2]}} : @_[3..$#_] }
-sub is_set    { defined $_[0]{content}{$_[1]}{$_[2]} }
+sub get_var   { exists $_[0]{content}{$_[1]}{$_[2]} ? "@{$_[0]{content}{$_[1]}{$_[2]}}" : $_[3] }
+sub get_arr   { exists $_[0]{content}{$_[1]}{$_[2]} ? @{$_[0]{content}{$_[1]}{$_[2]}} : @_[3..$#_] }
+sub is_set    { exists $_[0]{content}{$_[1]}{$_[2]} }
 
 sub set_group { $_[0]{cur_group} = $#_ < 1 ? '' : $_[1] }
 sub set_var   { $_[0]{content}{$_[0]{cur_group}}{$_[1]} = [@_[2..$#_]] }
