@@ -8,7 +8,6 @@ use ConfigFileScheme;
 use vars qw($VERSION);
 $VERSION = '0.4.0';
 
-# TODO: shield line feeding by placing \ at the end of line.
 # TODO: allow change comment symbol to ;
 
 
@@ -147,8 +146,20 @@ sub load2
   my $inside_string = 0;
   my $multiline = 0;
   my ($ln, $s, $var, $parr, $str_beg_ln, $do_concat, $is_first, $q);
-  for ($ln = 1; $s = <$f>; $ln++) {
+  my $cont = '';
+  for ($ln = 1; ($s = <$f>) || $cont; $ln++) {
+    ## process line continuation ##
+    $s = '' if !defined $s;
     chomp $s;
+    if (substr($s, -3) =~ /\\/ && $s =~ s/((?:^|[^\\])(?:\\\\)*)\\$/$1/) {
+      $cont .= $s;
+      next;
+    }
+    elsif ($cont) {
+      $s = $cont.$s;
+      $cont = '';
+    }
+    ## process accumulated line ##
     if (!$inside_string) {
       ## determine expression type ##
       if ($s =~ /^\s*(#|$)/){
@@ -313,7 +324,19 @@ sub load
     $multiline = $decl->is_multiline($gr, $var) || $2;
     $do_concat = 0;
   })~;
-  for ($ln = 1; $s = <$f>; $ln++) {
+  my $cont = '';
+  for ($ln = 1; ($s = <$f>) || $cont; $ln++) {
+    ## process line continuation ##
+    $s = '' if !defined $s;
+    if (substr($s, -3) =~ /\\/ && $s =~ s/((?:^|[^\\])(?:\\\\)*)\\\r?\n$/$1/) {
+      $cont .= $s;
+      next;
+    }
+    elsif ($cont) {
+      $s = $cont.$s;
+      $cont = '';
+    }
+    ## process accumulated line ##
     if (!$inside_string) {
       # skip comment and blank string
       next if $s =~ /^\s*(#|$)/;

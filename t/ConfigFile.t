@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 146;
+use Test::More tests => 154;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -209,6 +209,37 @@ EOF
   is_deeply([$cf->get_arr('gro_2', 'arr_3')], [qw(elm1 elm2 elm3 elm4)], 'arr_3');
   is_deeply([$cf->get_arr('gro_2', 'a1')], ['a', 'b', 'c d', '\'e', '\# f', 'g'], 'a1');
   is_deeply([$cf->get_arr('gro_2', 'a2')], ["a b\n c\nd", 'a word', 'tail'], 'a2');
+
+  fill_file($fname, <<'EOF');
+v1 = line \
+continuation\\
+v2 = variable\
+   with \
+multi\\\
+ple \\\\\
+\
+\\\
+continuation
+#comment \
+with continuation
+s1='\
+'
+s2='\\\
+ \
+'
+s3="\\\
+\\"\
+
+v3=\\\
+EOF
+  eval{ $cf->load; }; is($@ ? "$@" : '', '', 'load continuation test file');
+  is($cf->get_var('', 'v1'), 'line continuation\\');
+  is($cf->get_var('', 'v2'), 'variable with multi\ple \\\\\\continuation');
+  is($cf->get_var('', 'v3'), '\\');
+  is($cf->get_var('', 's1'), '');
+  is($cf->get_var('', 's2'), '\\ ');
+  is($cf->get_var('', 's3'), '\\\\');
+  isnt(load_file($fname, 'a="\\'), '');
 }
 
 sub check_variables_substitution
