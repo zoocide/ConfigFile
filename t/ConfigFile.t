@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 142;
+use Test::More tests => 143;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -172,6 +172,9 @@ elm3
   elm4 elm5
 arr_3 =
 elm1 elm2 elm3 elm4
+arr_4 @= 1
+2
+ 3
 a1=a b 'c d' \\'e '\\# 'f g
 a2 = 'a b
  c
@@ -191,6 +194,7 @@ EOF
   is($cf->get_var('gro_2', 'arr_1'), 'elm1', '[get_var]arr_1');
   is($cf->get_var('gro_2', 'arr_2'), 'elm1 elm2 complex element elm3 elm4 elm5', '[get_var]arr_2');
   is($cf->get_var('gro_2', 'arr_3'), 'elm1 elm2 elm3 elm4', '[get_var]arr_3');
+  is($cf->get_var('gro_2', 'arr_4'), '1 2 3', '[get_var]arr_4');
   is($cf->get_var('gro_2', 'a1'), 'a b c d \'e \# f g', '[get_var]a1');
   is($cf->get_var('gro_2', 'a2'), "a b\n c\nd a word tail", '[get_var]a2');
   is_deeply([$cf->get_arr('gro_2', 'arr_1')], [qw(elm1)], 'arr_1');
