@@ -282,6 +282,7 @@ sub skip_unrecognized_lines
   $self->{skip_unrecognized_lines} = $_[0] ? 1 : 0 if @_;
   $ret
 }
+sub erase { $_[0]{content} = {}; $_[0]{cur_group} = ''; }
 
 # $self->m_interpolate_str($str);
 sub m_interpolate_str
