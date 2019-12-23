@@ -266,7 +266,6 @@ sub load2
   my $as_vn = qr<(\w++)(?{$vn = $^N})>;
   my $as_vg = qr<(?:(\w*)::(?{$vg = $^N})|(?{$vg = $gr}))>;
   my $array_substitution = qr~(?(?{$do_concat})(?!))\$(?:{$as_vg$as_vn}|$as_vn)$space(?{
-    print "LIST SUBSTITUTION '$s'\n";
     push @$parr, $self->get_arr($vg, $vn);
   })~;
   my $value_part = qr<^(?:$array_substitution|$space|$normal_word|$q_str_beg(?:$(?{
