@@ -121,7 +121,7 @@ sub init
 # ok   : a1=a b 'c d' \'e '\\# 'f g
 
 # throws: Exceptions::OpenFileError, [Exceptions::TextFileError]
-sub load
+sub load2
 {
   my $self = shift;
   my $decl = $self->{decl};
@@ -255,7 +255,7 @@ sub load
   }
 }
 
-sub load2
+sub load
 {
   my $self = shift;
   my $decl = $self->{decl};
