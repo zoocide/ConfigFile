@@ -147,7 +147,7 @@ sub load2
   my $inside_string = 0;
   my $multiline = 0;
   my ($ln, $s, $var, $parr, $str_beg_ln, $do_concat, $is_first, $q);
-  for ($ln = 0; $s = <$f>; $ln++) {
+  for ($ln = 1; $s = <$f>; $ln++) {
     chomp $s;
     if (!$inside_string) {
       ## determine expression type ##
@@ -312,7 +312,7 @@ sub load
     $self->{content}{$gr}{$var}= $parr = [];
     $multiline = $decl->is_multiline($gr, $var) || $2;
   })~;
-  for ($ln = 0; $s = <$f>; $ln++) {
+  for ($ln = 1; $s = <$f>; $ln++) {
     if (!$inside_string) {
       # skip comment and blank string
       next if $s =~ /^\s*(#|$)/;
@@ -321,12 +321,14 @@ sub load
       # process variable declaration
       if ($s =~ s/$var_decl_beg// || $multiline) {
         if ($s !~ /$value_part/) {
+          chomp $s;
           push @errors, Exceptions::TextFileError->new($self->{fname}
                       , $ln, "unexpected string '$s' encountered");
         }
       }
       else {
         # unrecognized string
+        chomp $s;
         $self->{skip_unrecognized_lines} ||
             push @errors, Exceptions::TextFileError->new($self->{fname}
                         , $ln, "unrecognized line '$s'");
@@ -342,6 +344,7 @@ sub load
       }
       $inside_string = 0;
       if ($s !~ /$value_part/) {
+        chomp $s;
         push @errors, Exceptions::TextFileError->new($self->{fname}
                     , $ln, "unexpected string '$s' encountered");
       }
