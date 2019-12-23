@@ -88,34 +88,6 @@ sub init
   $self->{skip_unrecognized_lines} = 0;
 }
 
-
-## config file rules ##
-# error: [complex group]
-# ok   : [group]
-# error: var name with spaces = value
-# ok   : var_1 = a complex value
-# ok   :   # comment string
-# ok   : var_2 = '  a complex value  '
-# error: var_3 = 'a complex value
-# ok   : var_4 = 'a complex value' tail
-# ok   : var_5 = 'a complex
-# ok   :      # this is a part of the string
-# ok   :
-# ok   :  new lines are saved in this string
-# ok   :   value'
-# ok   : var_6 = head \'complex value\'
-# ok   : var_7 = \\n is not a new line
-# ok   : # set empty value
-# ok   : var_8 =
-# error:   value
-# ok   : arr_1 = elm1
-# ok   : arr_2 = elm1 elm2 'complex element'
-# ok   : elm3
-# ok   :   elm4 elm5
-# ok   : arr_3 =
-# ok   : elm1 elm2 elm3 elm4
-# ok   : a1=a b 'c d' \'e '\\# 'f g
-
 # throws: Exceptions::OpenFileError, [Exceptions::TextFileError]
 sub load2
 {
