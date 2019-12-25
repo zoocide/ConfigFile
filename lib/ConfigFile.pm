@@ -19,13 +19,13 @@ ConfigFile - read and write configuration files aka '.ini'.
 
   ## load configuration file ##
   my $decl = ConfigFileScheme->new( multiline => 1,... );
-  my $cf   = ConfigFile->new($file_name, $decl);
+  my $cf   = ConfigFile->new($filename, $decl);
   # <=>
-  my $cf = ConfigFile->new($file_name, { multiline => 1,... });
+  my $cf = ConfigFile->new($filename, { multiline => 1,... });
   # <=>
-  my $cf = ConfigFile->new($file_name,   multiline => 1,...  );
+  my $cf = ConfigFile->new($filename,   multiline => 1,...  );
   # or
-  my $cf = ConfigFile->new($file_name);
+  my $cf = ConfigFile->new($filename);
 
   # Ignoring unrecognized lines is useful when you want to read some scalar
   # varibles, but there can be multiline variables and you are not interested
@@ -390,13 +390,14 @@ sub save
   close $f;
 }
 
-sub file_name { $_[0]{fname} }
+sub filename { $_[0]{fname} }
 sub get_var   { exists $_[0]{content}{$_[1]}{$_[2]} ? "@{$_[0]{content}{$_[1]}{$_[2]}}" : $_[3] }
 sub get_arr   { exists $_[0]{content}{$_[1]}{$_[2]} ? @{$_[0]{content}{$_[1]}{$_[2]}} : @_[3..$#_] }
 sub is_set    { exists $_[0]{content}{$_[1]}{$_[2]} }
 sub group_names { keys %{$_[0]{content}} }
 sub var_names { exists $_[0]{content}{$_[1]} ? keys %{$_[0]{content}{$_[1]}} : () }
 
+sub set_filename { $_[0]{fname} = $_[1] }
 sub set_group { $_[0]{cur_group} = $#_ < 1 ? '' : $_[1] }
 sub set_var   { $_[0]{content}{$_[0]{cur_group}}{$_[1]} = [@_[2..$#_]] }
 sub set_var_if_not_exists
@@ -498,13 +499,13 @@ shield any next symbol or have special meaning, like "\n".
 =item new($filename, declaration)
 
   my $decl = ConfigFileScheme->new( multiline => 1,... );
-  my $cf   = ConfigFile->new($file_name, $decl);
+  my $cf   = ConfigFile->new($filename, $decl);
   # the same as #
-  my $cf = ConfigFile->new($file_name, { multiline => 1,... });
+  my $cf = ConfigFile->new($filename, { multiline => 1,... });
   # the same as #
-  my $cf = ConfigFile->new($file_name,   multiline => 1,...  );
+  my $cf = ConfigFile->new($filename,   multiline => 1,...  );
   # or #
-  my $cf = ConfigFile->new($file_name);
+  my $cf = ConfigFile->new($filename);
 
 =item load
 
@@ -521,6 +522,10 @@ will be thrown.
 This method checks all required variables are set.
 As the parameter it can recieve I<required> part of the scheme.
 This method is included into L</load> method.
+
+=item filename
+
+Method returns associated filename.
 
 =item group_names
 
@@ -539,6 +544,10 @@ If the variable is not set, method returns 'default value'.
 
 Get group::variable value as an array.
 If the variable is not set, method returns @default_value.
+
+=item set_filename('filename')
+
+Set the filename.
 
 =item set_group('group')
 
