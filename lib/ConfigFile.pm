@@ -147,12 +147,10 @@ sub load2
       elsif ($s =~ s/^\s*(\w+)\s*(\@?)=//) {
         # assignment statement
         $var = $1;
-        if (!$decl->is_valid($gr, $var)) {
-          push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "invalid variable '$var'");
-          $multiline = 0;
-          next;
-        }
         $multiline = $decl->is_multiline($gr, $var) || $2;
+        if (!$decl->is_valid($gr, $var)) {
+          push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "declaration of variable '${gr}::$var' is not permitted");
+        }
         $self->{content}{$gr}{$var} = ($parr = []);
       }
       elsif (!$multiline) {
@@ -291,9 +289,11 @@ sub load
   })|$qq_str_end))*+$>;
   my $var_decl_beg = qr~^\s*(\w+)\s*(\@?)=(?{
     $var = $1;
-    next if !$decl->is_valid($gr, $var);
     $self->{content}{$gr}{$var}= $parr = [];
     $multiline = $decl->is_multiline($gr, $var) || $2;
+    if (!$decl->is_valid($gr, $var)) {
+      push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "declaration of variable '${gr}::$var' is not permitted");
+    }
     $do_concat = 0;
   })~;
   my $cont = '';
