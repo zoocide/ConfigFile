@@ -461,6 +461,7 @@ Value part of the string begins just after the assignment symbol and ends with
 the line.
 Value is a space separated list of words.
 There is special words such as string literal and variable substitution.
+Sequence of words without any space between them is the one word.
 Variable declaration parsed into a list of words, which can be accessed by the
 L</get_arr> and L</get_var> methods.
 By default, variable declaration ends with the line (except string literal,
@@ -474,6 +475,7 @@ or by using the variable declaration second form (C<var_name @= ...>).
 
  $var or ${var} or ${group::var}
 
+Variables substitution is performed after value part parsed into the list.
 Once encountered such a construct it is replaced with the string value of the
 corresponding variable existing at that moment.
 In the first and second forms the group treated as the current group.
