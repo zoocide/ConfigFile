@@ -275,7 +275,7 @@ sub load
   my ($vg, $vn);
   my $as_vn = qr<(\w++)(?{$vn = $^N})>;
   my $as_vg = qr<(?:(\w*)::(?{$vg = $^N})|(?{$vg = $gr}))>;
-  my $array_substitution = qr~(?(?{$do_concat})(?!))\$(?:{$as_vg$as_vn}|$as_vn)$space(?{
+  my $array_substitution = qr~(?(?{$do_concat})(?!))\$(?:{$as_vg$as_vn}|$as_vn)(?:$space|$)(?{
     push @$parr, $self->get_arr($vg, $vn);
   })~;
   my $value_part = qr<^(?:$array_substitution|$space|$normal_word|$q_str_beg(?:$(?{

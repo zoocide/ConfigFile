@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 154;
+use Test::More tests => 156;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -64,7 +64,7 @@ eval {
   is($conf->get_var('info', 'version'), '0.1.0');
 
   # check file_name
-  is($conf->file_name, $fname);
+  is($conf->filename, $fname);
 
   ## save config file ##
   eval{ $conf->save };
@@ -342,6 +342,10 @@ EOF
   is_deeply([$conf->get_arr('gr2', 'v')], ['#']);
   is_deeply([$conf->get_arr('gr2', 'v1')], [qw($ $$)]);
   is_deeply([$conf->get_arr('gr2', 'a')], ['##abcaa#']);
+
+  fill_file($fname, "a=a b c\nb=d e f\nc=\$a \$b");
+  eval{ $conf->load; }; is($@ ? "$@" : '', '', 'load substitution test file');
+  is_deeply([$conf->get_arr('', 'c')], [qw(a b c d e f)]);
 }
 
 sub check_shield_str
