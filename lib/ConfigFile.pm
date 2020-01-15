@@ -140,18 +140,21 @@ sub load2
       }
       elsif ($s =~ /^\s*\[(\w+)\]\s*$/) {
         # group declaration
+        $self->{content}{$gr}{$var} = $parr if defined $var;
+        undef $var;
         $gr = $1;
         $multiline = 0;
         next;
       }
       elsif ($s =~ s/^\s*(\w+)\s*(\@?)=//) {
         # assignment statement
+        $self->{content}{$gr}{$var} = $parr if defined $var;
         $var = $1;
         $multiline = $decl->is_multiline($gr, $var) || $2;
         if (!$decl->is_valid($gr, $var)) {
           push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "declaration of variable '${gr}::$var' is not permitted");
         }
-        $self->{content}{$gr}{$var} = ($parr = []);
+        $parr = [];
       }
       elsif (!$multiline) {
         # unrecognized string
@@ -214,6 +217,7 @@ sub load2
       $is_first = 0;
     }
   }
+  $self->{content}{$gr}{$var} = $parr if defined $var;
 
   if ($inside_string){
     push @errors, Exceptions::TextFileError->new($self->{fname}, $ln-1, "unclosed string (see from line $str_beg_ln)");
@@ -288,8 +292,9 @@ sub load
     $inside_string = 1;
   })|$qq_str_end))*+$>;
   my $var_decl_beg = qr~^\s*(\w+)\s*(\@?)=(?{
+    $self->{content}{$gr}{$var}= $parr if defined $var;
     $var = $1;
-    $self->{content}{$gr}{$var}= $parr = [];
+    $parr = [];
     $multiline = $decl->is_multiline($gr, $var) || $2;
     if (!$decl->is_valid($gr, $var)) {
       push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "declaration of variable '${gr}::$var' is not permitted");
@@ -313,7 +318,12 @@ sub load
       # skip comment and blank string
       next if $s =~ /^\s*(#|$)/;
       # process group declaration
-      next if $s =~ /^\s*\[(\w+)\]\s*$(?{$gr = $1; $multiline = 0})/;
+      next if $s =~ /^\s*\[(\w+)\]\s*$(?{
+        $self->{content}{$gr}{$var} = $parr if defined $var;
+        undef $var;
+        $gr = $1;
+        $multiline = 0;
+      })/;
       # process variable declaration
       if ($s =~ s/$var_decl_beg// || $multiline) {
         if ($s !~ /$value_part/) {
@@ -346,6 +356,7 @@ sub load
       }
     }
   }
+  $self->{content}{$gr}{$var} = $parr if defined $var;
 
   if ($inside_string){
     push @errors, Exceptions::TextFileError->new($self->{fname}, $ln-1, "unclosed string (see from line $str_beg_ln)");
