@@ -119,7 +119,7 @@ sub load2
   my $multiline = 0;
   my ($ln, $s, $var, $parr, $str_beg_ln, $do_concat, $is_first, $q);
   my $cont = '';
-  for ($ln = 1; ($s = <$f>) || $cont; $ln++) {
+  for ($ln = 1; defined ($s = <$f>) || $cont; $ln++) {
     ## process line continuation ##
     $s = '' if !defined $s;
     chomp $s;
@@ -297,7 +297,7 @@ sub load
     $do_concat = 0;
   })~;
   my $cont = '';
-  for ($ln = 1; ($s = <$f>) || $cont; $ln++) {
+  for ($ln = 1; defined ($s = <$f>) || $cont; $ln++) {
     ## process line continuation ##
     $s = '' if !defined $s;
     if (substr($s, -3) =~ /\\/ && $s =~ s/((?:^|[^\\])(?:\\\\)*)\\\r?\n$/$1/) {
