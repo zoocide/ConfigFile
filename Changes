@@ -1,4 +1,6 @@
 Revision history for Perl extension ConfigFile.
+0.5.1
+    + fix variable self substitution
 0.5.0
     + add erase method
     + add group_names method
