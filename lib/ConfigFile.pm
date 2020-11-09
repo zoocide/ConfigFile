@@ -6,7 +6,7 @@ use Exceptions::OpenFileError;
 use ConfigFileScheme;
 
 use vars qw($VERSION);
-$VERSION = '0.5.2';
+$VERSION = '0.5.3';
 
 # TODO: allow change comment symbol to ;
 
@@ -401,8 +401,12 @@ sub save
     my $gr = $self->{content}{$gr_name};
     print $f "\n[$gr_name]\n" if $gr_name;
     for (sort keys %$gr){
-      my $prefix = $self->{decl}->is_multiline($gr, $_) ? "\n  " : ' ';
-      print $f "$_ =", (map $prefix.m_shield_str($_), @{$gr->{$_}}), "\n";
+      if ($self->{decl}->is_multiline($gr_name, $_)) {
+        print $f "$_ @=", (map "\n  ".m_shield_str($_), @{$gr->{$_}}), "\n";
+      }
+      else {
+        print $f "$_ =", (map ' '.m_shield_str($_), @{$gr->{$_}}), "\n";
+      }
     }
   }
   close $f;
