@@ -4,5 +4,6 @@ MANIFEST
 README
 t/ConfigFile.t
 t/ConfigFileScheme.t
+t/set-unset.t
 lib/ConfigFile.pm
 lib/ConfigFileScheme.pm
