@@ -457,6 +457,9 @@ sub m_shield_str
     $ret =~ s/([\\'])/\\$1/g;
     $ret = '\''.$ret.'\'';
   }
+  elsif ($ret eq '') {
+    $ret = "''";
+  }
   else {
     $ret =~ s/([\\'"\$#])/\\$1/g;
   }

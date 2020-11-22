@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 157;
+use Test::More tests => 158;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -394,6 +394,7 @@ sub check_array
     v2 => [qw(two words)],
     v3 => ['#it', qw(is not a comment), '\#'],
     v4 => [qw(list with string), "a string\n###"],
+    v5 => ['', ''],
   );
 
   my $conf = ConfigFile->new($fname);
