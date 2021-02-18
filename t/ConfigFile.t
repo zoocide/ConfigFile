@@ -2,11 +2,12 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 158;
+use Test::More tests => 162;
 use File::Temp qw(tempfile);
 
 use Exceptions;
 
+use constant 'ConfigFile::legacy' => 0;
 BEGIN{ use_ok('ConfigFile') }
 
 my (undef, $fname) = tempfile();
@@ -104,6 +105,7 @@ eval {
   check_shield_str($fname);
   check_array($fname);
   check_scheme($fname);
+  check_default_group($fname);
 };
 
 ## finally ##
@@ -432,4 +434,25 @@ EOF
   isnt(load_file($fname, 'a=1', required => {'' => [qw(b)]}), '');
   is(load_file($fname, 'a=1', strict => 1, struct => {'' => [qw(a)]}), '');
   isnt(load_file($fname, 'b=1', strict => 1, struct => {'' => [qw(a)]}), '');
+}
+
+sub check_default_group
+{
+  my $fname = shift;
+## check variables substitution ##
+  fill_file($fname, <<'EOF');
+v=abc
+[gr]
+a=aa
+[]
+v1 = ${gr::a}
+EOF
+  my $conf = ConfigFile->new($fname);
+  eval{ $conf->load };
+  ok(!$@, 'config file with splitted default group');
+  diag("$@") if $@;
+
+  is($conf->get_var('', 'v'), 'abc', 'variable v');
+  is($conf->get_var('', 'v1'), 'aa', 'variable v1');
+  is($conf->get_var('gr', 'a'), 'aa', 'variable gr::a');
 }
