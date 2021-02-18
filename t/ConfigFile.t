@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 162;
+use Test::More tests => 166;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -106,6 +106,7 @@ eval {
   check_array($fname);
   check_scheme($fname);
   check_default_group($fname);
+  check_set_var_from_another_group($fname);
 };
 
 ## finally ##
@@ -455,4 +456,26 @@ EOF
   is($conf->get_var('', 'v'), 'abc', 'variable v');
   is($conf->get_var('', 'v1'), 'aa', 'variable v1');
   is($conf->get_var('gr', 'a'), 'aa', 'variable gr::a');
+}
+
+sub check_set_var_from_another_group
+{
+  my $fname = shift;
+## check variables substitution ##
+  fill_file($fname, <<'EOF');
+v=abc
+gr::a=aa
+v1=${gr::a}
+EOF
+  TODO: {
+  local $TODO = "Explicit assignment to a variable from another group.";
+  my $conf = ConfigFile->new($fname);
+  eval{ $conf->load };
+  ok(!$@, 'config file with assignment to a variable from another group');
+  diag("$@") if $@;
+
+  is($conf->get_var('', 'v'), 'abc', 'variable v');
+  is($conf->get_var('', 'v1'), 'aa', 'variable v1');
+  is($conf->get_var('gr', 'a'), 'aa', 'variable gr::a');
+  }
 }
