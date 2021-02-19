@@ -107,6 +107,7 @@ sub m_load_old
 
   open(my $f, '<', $self->{fname}) || throw OpenFileError => $self->{fname};
 
+  my $section = '';
   my $gr = '';
   my $interpolate_str = sub {
     my $str = shift;
@@ -116,7 +117,7 @@ sub m_load_old
       |
       # interpolate variables
       \$(\{(?:(\w*)::)?)?(\w++)(?(4)\})
-    /$1 ? "\n" : $2 ? "\t" : $3 ? $3 : $self->get_var(defined $5 ? $5||'' : $gr, $6, '')/gex;
+    /$1 ? "\n" : $2 ? "\t" : $3 ? $3 : $self->get_var(defined $5 ? $5||'' : $section, $6, '')/gex;
     $str
   };
   my $normalize_str = sub {
@@ -152,15 +153,16 @@ sub m_load_old
         # group declaration
         $self->{content}{$gr}{$var} = $parr if defined $var;
         undef $var;
-        $gr = $1;
+        $section = $1;
         $multiline = 0;
         next;
       }
-      elsif ($s =~ s/^\s*(\w+)\s*(\@?)=//) {
+      elsif ($s =~ s/^\s*(?:(\w*)::)?(\w+)\s*(\@?)=//) {
         # assignment statement
         $self->{content}{$gr}{$var} = $parr if defined $var;
-        $var = $1;
-        $multiline = $decl->is_multiline($gr, $var) || $2;
+        $gr = defined $1 ? $1 : $section;
+        $var = $2;
+        $multiline = $decl->is_multiline($gr, $var) || $3;
         if (!$decl->is_valid($gr, $var)) {
           push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "declaration of variable '${gr}::$var' is not permitted");
         }
@@ -206,7 +208,7 @@ sub m_load_old
         }
         elsif ($1 =~ /^\$(\{(?:(\w*)::)?)?(\w++)(?(1)\})(?=\s|#|$)/) {
           # array interpolation
-          push @$parr, $self->get_arr(defined $2 ? $2||'' : $gr, $3);
+          push @$parr, $self->get_arr(defined $2 ? $2||'' : $section, $3);
         }
         else {
           push @$parr, &$interpolate_str($1);
@@ -257,6 +259,7 @@ sub m_load
 
   my $inside_string = 0;
   my $multiline = 0;
+  my $section = '';
   my $gr = '';
   my $do_concat = 0;
   my ($ln, $s, $var, $parr, $str_beg_ln, $is_first, $q);
@@ -270,7 +273,7 @@ sub m_load
       |
       # interpolate variables
       \$(\{(?:(\w*)::)?)?(\w++)(?(4)\})
-    /$1 ? "\n" : $2 ? "\t" : $3 ? $3 : $self->get_var(defined $5 ? $5||'' : $gr, $6, '')/gex;
+    /$1 ? "\n" : $2 ? "\t" : $3 ? $3 : $self->get_var(defined $5 ? $5||'' : $section, $6, '')/gex;
     $str
   };
   my $normalize_str = sub {
@@ -288,7 +291,7 @@ sub m_load
   my $qq_str = qr<$qq_str_beg$qq_str_end>;
   my ($vg, $vn);
   my $as_vn = qr<(\w++)(?{$vn = $^N})>;
-  my $as_vg = qr<(?:(\w*)::(?{$vg = $^N})|(?{$vg = $gr}))>;
+  my $as_vg = qr<(?:(\w*)::(?{$vg = $^N})|(?{$vg = $section}))>;
   my $array_substitution = qr~(?(?{$do_concat})(?!))\$(?:\{$as_vg$as_vn\}|$as_vn)(?:$space|$)(?{
     push @$parr, $self->get_arr($vg, $vn);
   })~;
@@ -301,11 +304,12 @@ sub m_load
     $str_beg_ln = $ln;
     $inside_string = 1;
   })|$qq_str_end))*+$>;
-  my $var_decl_beg = qr~^\s*(\w+)\s*(\@?)=(?{
+  my $var_decl_beg = qr~^\s*$as_vg$as_vn\s*(\@?)=(?{
     $self->{content}{$gr}{$var}= $parr if defined $var;
-    $var = $1;
+    $gr = $vg;
+    $var = $vn;
     $parr = [];
-    $multiline = $decl->is_multiline($gr, $var) || $2;
+    $multiline = $decl->is_multiline($gr, $var) || $3;
     if (!$decl->is_valid($gr, $var)) {
       push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "declaration of variable '${gr}::$var' is not permitted");
     }
@@ -331,7 +335,7 @@ sub m_load
       next if $s =~ /^\s*\[(\w*)\]\s*$(?{
         $self->{content}{$gr}{$var} = $parr if defined $var;
         undef $var;
-        $gr = $1;
+        $section = $1;
         $multiline = 0;
       })/;
       # process variable declaration
@@ -495,6 +499,8 @@ variables.
  var_name @= elem1 elem2
  elem3
  ...
+ # or
+ group::var = value
 
 I<var_name> is one word matching B<\w+> pattern.
 The value part of the string begins just after the assignment symbol and ends
@@ -510,6 +516,7 @@ treats all next lines as the value part continuation until the next declaration
 occurred.
 This behavior is enabled by telling the parser that the variable is B<multiline>
 or by using the variable declaration second form (C<var_name @= ...>).
+If specified the group, the variable is considered from that group.
 
 =head3 Variables substitution
 
