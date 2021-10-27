@@ -1,4 +1,9 @@
 Revision history for Perl extension ConfigFile.
+0.7.0
+    + add support of '[]' group declaration to refer to the default group.
+    + add support of an explicit assignment to a variable from another group.
+    + add conversion of CRLF to the single '\n' for the `load` method.
+    + fix documentation.
 0.6.0
     + add method 'set'.
     + add method 'unset'.
