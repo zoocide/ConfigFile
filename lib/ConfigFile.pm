@@ -105,7 +105,7 @@ sub m_load_old
   my $decl = $self->{decl};
   my @errors;
 
-  open(my $f, '<', $self->{fname}) || throw OpenFileError => $self->{fname};
+  open(my $f, '<:crlf', $self->{fname}) || throw OpenFileError => $self->{fname};
 
   my $section = '';
   my $gr = '';
@@ -255,7 +255,7 @@ sub m_load
   my $decl = $self->{decl};
   my @errors;
 
-  open(my $f, '<', $self->{fname}) || throw OpenFileError => $self->{fname};
+  open(my $f, '<:crlf', $self->{fname}) || throw OpenFileError => $self->{fname};
 
   my $inside_string = 0;
   my $multiline = 0;
