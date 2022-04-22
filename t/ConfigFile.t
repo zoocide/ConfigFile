@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 168;
+use Test::More tests => 169;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -288,6 +288,7 @@ v2=$
 v3=v
 v4=$v2''$v3''$v2''$v3
 a=$v${v}${::v}${gr::a}${gr2::v} #> [q.##abcaa#.]
+b=${gr::a} $v3 #> [q.aa v.]
 rec=abc
 rec=$rec$rec
 EOF
@@ -323,6 +324,7 @@ EOF
   is($conf->get_var('gr2', 'v2'), '$', 'gr2::v2');
   is($conf->get_var('gr2', 'v4'), '$v$v', 'gr2::v4');
   is($conf->get_var('gr2', 'a'), '##abcaa#', 'gr2::a');
+  is($conf->get_var('gr2', 'b'), 'aa v', 'gr2::b');
   is($conf->get_var('gr2', 'rec'), 'abcabc', 'recursion');
   is($conf->get_var('', 's9'), "a b cfirst\n last", 's9');
   is_deeply([$conf->get_arr('', 'v' )], ['abc']);

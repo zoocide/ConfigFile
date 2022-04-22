@@ -1,4 +1,6 @@
 Revision history for Perl extension ConfigFile.
+0.7.1
+    + fix array substitution.
 0.7.0
     + add support of '[]' group declaration to refer to the default group.
     + add support of an explicit assignment to a variable from another group.
