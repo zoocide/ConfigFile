@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 169;
+use Test::More tests => 175;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -107,6 +107,7 @@ eval {
   check_scheme($fname);
   check_default_group($fname);
   check_set_var_from_another_group($fname);
+  check_nested_variables($fname);
 };
 
 ## finally ##
@@ -483,4 +484,32 @@ EOF
   is($conf->get_var('', 'v2'), 'foo', 'variable v2');
   is($conf->get_var('gr', 'a'), 'aa', 'variable gr::a');
   is($conf->get_var('gr', 'v'), 'bar', 'variable gr::v');
+}
+
+sub check_nested_variables
+{
+  my $fname = shift;
+  fill_file($fname, <<'EOF');
+suffix = _new
+var = wrong value
+var_new = a b c
+v = $var
+v_new = ok
+ok = correct value
+res = ${var${suffix}}
+res1 = $var$suffix
+res2 = ${var$suffix}
+res3 = ${${v$suffix}}
+res4 = +${var$suffix}
+EOF
+  my $conf = ConfigFile->new($fname);
+  eval{ $conf->load };
+  ok(!$@, 'config file with nested variable substitution');
+  diag("$@") if $@;
+
+  is_deeply([$conf->get_arr('', 'res')], [qw(a b c)], '${var${suffix}}');
+  is_deeply([$conf->get_arr('', 'res1')], ['wrong value_new'], '$var$suffix');
+  is_deeply([$conf->get_arr('', 'res2')], [qw(a b c)], '${var$suffix}');
+  is_deeply([$conf->get_arr('', 'res3')], [qw(correct value)], '${${v$suffix}}');
+  is_deeply([$conf->get_arr('', 'res4')], ['+a b c'], '+${var$suffix}');
 }
