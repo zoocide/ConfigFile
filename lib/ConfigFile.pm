@@ -265,15 +265,41 @@ sub m_load
   my ($ln, $s, $var, $parr, $str_beg_ln, $is_first, $q);
   my $add_word = sub { $do_concat ? $parr->[-1] .= $_[0] : push @$parr, $_[0]; $do_concat = 1 };
 
-  my $interpolate_str = sub {
+  # NOTE: Using (?{ code }) inside another (?{ code }) breaks the thing.
+  my $vg_spec = qr~(?<vg>\w*)::~;
+  my $vn_spec = qr~(?<vn>\w++)~;
+  my $v_spec = qr~$vg_spec?$vn_spec~;
+  my $v_symb = qr~[\w:]~;
+  my $var_use = qr~
+    (?'var_use'
+      \$ (?:
+        (?>$vn_spec) |
+        \{ (?:
+          (?>$v_spec) |
+          (?'nested' (?:(?&var_use)|$v_symb++)++ )
+        ) \}
+      )
+    )
+  ~x;
+  my $substitute_flat_var = sub {
+    my $s = shift;
+    $s =~ /^$v_spec$/ ? $self->get_var($+{vg}//$section, $+{vn}, '') : undef
+  };
+  my $interpolate_str;
+  $interpolate_str = sub {
     my $str = shift;
-    $str =~ s/
+    $str =~ s~
       # normalize string
-      \\(n) | \\(t) | \\(.)
+      \\(.)
       |
       # interpolate variables
-      \$(\{(?:(\w*)::)?)?(\w++)(?(4)\})
-    /$1 ? "\n" : $2 ? "\t" : $3 ? $3 : $self->get_var(defined $5 ? $5||'' : $section, $6, '')/gex;
+      $var_use
+    ~
+      my $t;
+      defined $1 ? ($1 eq 'n' ? "\n" : $1 eq 't' ? "\t" : $1)
+        : defined $+{vn} ? $self->get_var($+{vg}//$section, $+{vn}, '')
+        : $substitute_flat_var->($t = $interpolate_str->($+{nested})) // "\${$t}"
+    ~gex;
     $str
   };
   my $normalize_str = sub {
