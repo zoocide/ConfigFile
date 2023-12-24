@@ -599,6 +599,14 @@ In the first and second forms, the group was treated as the current group.
 If the whole word is the one variable substitution, this word will be replaced
 by the list value of the variable.
 
+=head3 Nested variables substitution
+
+ ${var${suffix}}
+
+When construct is encountered in a value part, parser attempts to recursivle
+substitute inner variables to gain the variable name. If the name corresponds the
+I<group::var> form, the expression is replaced by its value.
+
 =head3 String literal "", ''
 
 String literal begins with the quote I<'> or I<"> and ends with the
