@@ -315,11 +315,33 @@ sub m_load
   my $qq_str_end = qr~((?:[^\\"]|\\(?:.|$))*+)"(?{ $parr->[-1].=&$interpolate_str($^N)})~s;
   my $q_str = qr<$q_str_beg$q_str_end>;
   my $qq_str = qr<$qq_str_beg$qq_str_end>;
-  my ($vg, $vn);
+  my ($vg, $vn, $not_spec);
   my $as_vn = qr<(\w++)(?{$vn = $^N})>;
   my $as_vg = qr<(?:(\w*)::(?{$vg = $^N})|(?{$vg = $section}))>;
-  my $array_substitution = qr~(?(?{$do_concat})(?!))\$(?:\{$as_vg$as_vn\}|(?{$vg = $section})$as_vn)(?:$space|$)(?{
-    push @$parr, $self->get_arr($vg, $vn);
+  my $as_var_use = qr`
+    (?&as_var_use) #< recursion is used to clean %+ values after a match.
+    (?(DEFINE)
+      (?'as_var_use' $var_use (?{
+        undef $not_spec;
+        if (defined $+{vn}) {
+          $vg = $+{vg} // $section;
+          $vn = $+{vn};
+        }
+        else {
+          my $spec = $interpolate_str->($+{nested});
+          if ($spec =~ /^$v_spec$/) {
+            $vg = $+{vg} // $section;
+            $vn = $+{vn};
+          }
+          else {
+            $not_spec = "\${$spec}";
+          }
+        }
+      }))
+    )
+  `x;
+  my $array_substitution = qr~(?(?{$do_concat})(?!))$as_var_use(?:$space|$)(?{
+    push @$parr, defined $not_spec ? $not_spec : $self->get_arr($vg, $vn);
   })~;
   my $value_part = qr<^(?:$array_substitution|$space|$normal_word|$q_str_beg(?:$(?{
     $q = '\'';
