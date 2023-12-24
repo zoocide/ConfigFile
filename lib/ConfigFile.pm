@@ -109,15 +109,30 @@ sub m_load_old
 
   my $section = '';
   my $gr = '';
-  my $interpolate_str = sub {
+  my $var_flat_spec = qr~(?:(\w*+)::)?(\w++)~;
+  my $var_nested_spec = qr~((?:\$\{(?-1)\}|\$?[\w:]++)++)~;
+  my $substitute_flat_var = sub {
+    my $spec = shift;
+    $spec =~ /^$var_flat_spec$/ ? $self->get_var($1 // $section, $2) : undef
+  };
+  my $interpolate_str;
+  $interpolate_str = sub {
     my $str = shift;
-    $str =~ s/
+    $str =~ s~
       # normalize string
       \\(n) | \\(t) | \\(.)
       |
       # interpolate variables
       \$(\{(?:(\w*)::)?)?(\w++)(?(4)\})
-    /$1 ? "\n" : $2 ? "\t" : $3 ? $3 : $self->get_var(defined $5 ? $5||'' : $section, $6, '')/gex;
+      |
+      # interpolate nested variables
+      \$\{$var_nested_spec\}
+    ~
+      my $t;
+      $1 ? "\n" : $2 ? "\t" : $3 ? $3
+        : $6 ? $self->get_var(defined $5 ? $5||'' : $section, $6, '')
+        : $substitute_flat_var->($t = $interpolate_str->($7)) // "\${$t}"
+    ~gex;
     $str
   };
   my $normalize_str = sub {
@@ -209,6 +224,11 @@ sub m_load_old
         elsif ($1 =~ /^\$(\{(?:(\w*)::)?)?(\w++)(?(1)\})(?=\s|#|$)/) {
           # array interpolation
           push @$parr, $self->get_arr(defined $2 ? $2||'' : $section, $3);
+        }
+        elsif ($1 =~ /^\$\{$var_nested_spec\}(?=\s|#|$)/) {
+          # array interpolation for nested variable
+          my $spec = $interpolate_str->($1);
+          push @$parr, $spec =~ /^$var_flat_spec$/ ? $self->get_arr($1 // $section, $2) : "\${$spec}";
         }
         else {
           push @$parr, &$interpolate_str($1);
