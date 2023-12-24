@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 176;
+use Test::More tests => 178;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -185,6 +185,7 @@ a1=a b 'c d' \\'e '\\# 'f g
 a2 = 'a b
  c
 d' 'a 'word  tail
+a3 = xxx = 5
 EOF
   my $cf = ConfigFile->new($fname, multiline=>{'gro_2'=>[qw(arr_2 arr_3 a2)]});
   $cf->set_group('args');
@@ -213,6 +214,7 @@ EOF
   is_deeply([$cf->get_arr('gro_2', 'arr_3')], [qw(elm1 elm2 elm3 elm4)], 'arr_3');
   is_deeply([$cf->get_arr('gro_2', 'a1')], ['a', 'b', 'c d', '\'e', '\# f', 'g'], 'a1');
   is_deeply([$cf->get_arr('gro_2', 'a2')], ["a b\n c\nd", 'a word', 'tail'], 'a2');
+  is_deeply([$cf->get_arr('gro_2', 'a3')], [qw(xxx = 5)], 'a3');
 
   fill_file($fname, <<'EOF');
 v1 = line \
@@ -502,6 +504,7 @@ res2 = ${var$suffix}
 res3 = ${${v$suffix}}
 res4 = +${var$suffix}
 not_var = ${var$suffix$}
+wrds = ${var $suffix}
 EOF
   my $conf = ConfigFile->new($fname);
   eval{ $conf->load };
@@ -514,4 +517,5 @@ EOF
   is_deeply([$conf->get_arr('', 'res3')], [qw(correct value)], '${${v$suffix}}');
   is_deeply([$conf->get_arr('', 'res4')], ['+a b c'], '+${var$suffix}');
   is_deeply([$conf->get_arr('', 'not_var')], ['${var_new$}'], '${var_new$}');
+  is_deeply([$conf->get_arr('', 'wrds')], [qw(${var _new})], '${var _new}');
 }
