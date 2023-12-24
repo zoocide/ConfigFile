@@ -67,6 +67,8 @@ ConfigFile - read and write configuration files aka '.ini'.
 
 =cut
 
+# Use legacy code because it is significantly faster. (5500op/s vs 1200op/s)
+use constant legacy => 1;
 BEGIN {
   if (!exists &legacy) {
     my $v = $^V < 5.018;
