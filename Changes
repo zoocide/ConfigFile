@@ -1,4 +1,7 @@
 Revision history for Perl extension ConfigFile.
+0.8.0
+    + add a support of nested variables substitution.
+    + change to use the legacy code because of its speed.
 0.7.1
     + fix array substitution.
 0.7.0

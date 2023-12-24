@@ -6,7 +6,7 @@ use Exceptions::OpenFileError;
 use ConfigFileScheme;
 
 use vars qw($VERSION);
-$VERSION = '0.7.1';
+$VERSION = '0.8.0';
 
 # TODO: allow change comment symbol to ;
 
