@@ -253,6 +253,7 @@ sub check_variables_substitution
 #config file
 v=abc
 v1=a b c
+v2=d e
 v_str='first
  last'
 abc=a
@@ -273,7 +274,7 @@ s4 = ${v1}    #< braced list substitution
 s5 = ${v1}${v1} #< braced twice scalar substitution with concatenation
 s6 = ++$v_str${v}++ #< mixed scalar substitution with concatenation
 s7 = $v1$abc  #< simple twice scalar substitution with concatenation
-s8 = ${abc} $abc   #< braced multiline substitution
+s8 = ${abc} $abc $v2  #< braced multiline substitution
 s9 = $abc${v_str} #< mixed substitution with concatenation
 a=\"a b\"     #> [q."a., q.b".]
 b="command $a"#> [q.command "a b".]
@@ -312,7 +313,7 @@ EOF
   is($conf->get_var('', 's5'), 'a b ca b c', 's5');
   is($conf->get_var('', 's6'), "++first\n lastabc++", 's6');
   is($conf->get_var('', 's7'), 'a b ca b c', 's7');
-  is($conf->get_var('', 's8'), 'a b c a b c', 's8');
+  is($conf->get_var('', 's8'), 'a b c a b c d e', 's8');
   is($conf->get_var('', 's9'), "a b cfirst\n last", 's9');
   is($conf->get_var('', 'a'), '"a b"', 'a');
   is($conf->get_var('', 'b'), 'command "a b"', 'b');
@@ -340,7 +341,7 @@ EOF
   is_deeply([$conf->get_arr('', 's5')], ['a b ca b c']);
   is_deeply([$conf->get_arr('', 's6')], ["++first\n lastabc++"]);
   is_deeply([$conf->get_arr('', 's7')], ['a b ca b c']);
-  is_deeply([$conf->get_arr('', 's8')], [qw(a b c a b c)]);
+  is_deeply([$conf->get_arr('', 's8')], [qw(a b c a b c d e)]);
   is_deeply([$conf->get_arr('', 's9')], ["a b cfirst\n last"]);
   is_deeply([$conf->get_arr('', 'a')], [qw("a b")]);
   is_deeply([$conf->get_arr('', 'b')], ['command "a b"']);
