@@ -115,7 +115,7 @@ sub m_load_old
   my $var_nested_spec = qr~((?:\$\{(?-1)\}|\$?[\w:]++)++)~;
   my $substitute_flat_var = sub {
     my $spec = shift;
-    $spec =~ /^$var_flat_spec$/ ? $self->get_var($1 // $section, $2) : undef
+    $spec =~ /^$var_flat_spec$/ ? $self->get_var($1 // $section, $2, '') : undef
   };
   my $interpolate_str;
   $interpolate_str = sub {
