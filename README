@@ -1,4 +1,4 @@
-ConfigFile version 0.8.0
+ConfigFile version 0.8.1
 =======================
 
 This module allows to read and write configuration files aka '.ini'.
