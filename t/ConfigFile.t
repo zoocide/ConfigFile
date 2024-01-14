@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 178;
+use Test::More tests => 186;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -282,6 +282,8 @@ s9 = $abc${v_str} #< mixed substitution with concatenation
 a=\"a b\"     #> [q."a., q.b".]
 b="command $a"#> [q.command "a b".]
 c=a$a         #> [q.a"a b".].
+d=a ${not_exist}string #> [qw(a string)].
+d1=a $not_exist'string' #> [qw(a string)].
 [gr]
 a=aa
 b=$a${::a}${gr::a} #> [q.aa"a b"aa.]
@@ -321,6 +323,8 @@ EOF
   is($conf->get_var('', 'a'), '"a b"', 'a');
   is($conf->get_var('', 'b'), 'command "a b"', 'b');
   is($conf->get_var('', 'c'), 'a"a b"', 'c');
+  is($conf->get_var('', 'd'), 'a string', 'd');
+  is($conf->get_var('', 'd1'), 'a string', 'd1');
   is($conf->get_var('gr', 'a'), 'aa', 'gr::a');
   is($conf->get_var('gr', 'b'), 'aa"a b"aa', 'gr::b');
   is($conf->get_var('gr2', 'v'), '#', 'gr2::v');
@@ -349,6 +353,8 @@ EOF
   is_deeply([$conf->get_arr('', 'a')], [qw("a b")]);
   is_deeply([$conf->get_arr('', 'b')], ['command "a b"']);
   is_deeply([$conf->get_arr('', 'c')], ['a"a b"']);
+  is_deeply([$conf->get_arr('', 'd')], [qw(a string)]);
+  is_deeply([$conf->get_arr('', 'd1')], [qw(a string)]);
   is_deeply([$conf->get_arr('gr', 'a')], ['aa']);
   is_deeply([$conf->get_arr('gr', 'b')], ['aa"a b"aa']);
   is_deeply([$conf->get_arr('gr2', 'v')], ['#']);
@@ -505,6 +511,11 @@ res3 = ${${v$suffix}}
 res4 = +${var$suffix}
 not_var = ${var$suffix$}
 wrds = ${var $suffix}
+empty1 = ${not_var$suffix}
+empty2 = "${not_var$suffix}empty"
+empty3 = ${not_var$suffix}'empty'
+ok::var = group ok
+res5 = ${$v${suffix}::var}
 EOF
   my $conf = ConfigFile->new($fname);
   eval{ $conf->load };
@@ -518,4 +529,8 @@ EOF
   is_deeply([$conf->get_arr('', 'res4')], ['+a b c'], '+${var$suffix}');
   is_deeply([$conf->get_arr('', 'not_var')], ['${var_new$}'], '${var_new$}');
   is_deeply([$conf->get_arr('', 'wrds')], [qw(${var _new})], '${var _new}');
+  is_deeply([$conf->get_arr('', 'empty1')], [], 'empty1');
+  is_deeply([$conf->get_arr('', 'empty2')], [qw(empty)], 'empty2');
+  is_deeply([$conf->get_arr('', 'empty3')], [qw(empty)], 'empty3');
+  is_deeply([$conf->get_arr('ok', 'var')], [qw(group ok)], '${$v${suffix}::var}');
 }
