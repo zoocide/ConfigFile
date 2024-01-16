@@ -166,7 +166,7 @@ sub m_load_old
         # comment string
         next;
       }
-      elsif ($s =~ /^\s*\[(\w*)\]\s*$/) {
+      elsif ($s =~ /^\s*\[(\w*)\]\s*(?:#.*)?$/) {
         # group declaration
         $self->{content}{$gr}{$var} = $parr if defined $var;
         undef $var;
@@ -404,7 +404,7 @@ sub m_load
       # skip comment and blank string
       next if $s =~ /^\s*(#|$)/;
       # process group declaration
-      next if $s =~ /^\s*\[(\w*)\]\s*$(?{
+      next if $s =~ /^\s*\[(\w*)\]\s*(?:#.*)?$(?{
         $self->{content}{$gr}{$var} = $parr if defined $var;
         undef $var;
         $section = $1;

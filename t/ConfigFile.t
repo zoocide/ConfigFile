@@ -167,7 +167,7 @@ var_5 = 'a complex
  new lines are saved in this string
   value'
 qq_str = "\\n\\\\\\t"
-[gro_2]
+[gro_2] # comment after a group declaration
 var_6 = head \\'complex  value\\'
 var_7 = \\\\n is not a new line
 # set empty value
