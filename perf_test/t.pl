@@ -3,6 +3,7 @@ use lib '../lib';
 use ConfigFile;
 use FileHandle;
 
+our $fname = 'f.conf';
 my $cf = ConfigFile->new('f.conf');
 $cf->load;
 print "$_:\n", map "  '$_'\n", sort $cf->get_arr('', $_) for sort $cf->var_names;
@@ -10,33 +11,33 @@ $cf->set_filename('r.conf');
 $cf->save;
 
 print "################\n";
-my %h = read2hash('f.conf');
 print "'$_' = '$h{$_}'\n" for sort keys %h;
+my %h = read2hash($fname);
 
 use Benchmark qw(:all);
 
 1 and timethese(-1, {
-  config => sub{ConfigFile->new('f.conf')->load},
+  config => sub{ConfigFile->new($fname)->load},
   read_file => sub {
-    open my $f, '<', 'f.conf';
+    open my $f, '<', $fname;
     1 while <$f>;
     close $f;
   },
   read_filehandle => sub {
-    my $f = FileHandle->new('f.conf', '<');
+    my $f = FileHandle->new($fname, '<');
     1 while <$f>;
   },
   read_file2array => sub {
-    open my $f, '<', 'f.conf';
+    open my $f, '<', $fname;
     my @arr;
     push @arr, $_ while <$f>;
     close $f;
   },
   read_file2hash => sub {
-    my %h = read2hash('f.conf');
+    my %h = read2hash($fname);
   },
   read_file2hash_words => sub {
-    my %h = read2hash_words('f.conf');
+    my %h = read2hash_words($fname);
   },
 });
 
