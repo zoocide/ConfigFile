@@ -276,6 +276,7 @@ sub m_load_old
   }
 }
 
+# throws: Exceptions::OpenFileError, [Exceptions::TextFileError]
 sub m_load
 {
   my $self = shift;
@@ -284,48 +285,31 @@ sub m_load
 
   open(my $f, '<:crlf', $self->{fname}) || throw OpenFileError => $self->{fname};
 
-  my $inside_string = 0;
-  my $multiline = 0;
   my $section = '';
   my $gr = '';
-  my $do_concat = 0;
-  my ($ln, $s, $var, $parr, $str_beg_ln, $is_first, $q);
-  my $add_word = sub { $do_concat ? $parr->[-1] .= $_[0] : push @$parr, $_[0]; $do_concat = 1 };
-
-  # NOTE: Using (?{ code }) inside another (?{ code }) breaks the thing.
-  my $vg_spec = qr~(?<vg>\w*)::~;
-  my $vn_spec = qr~(?<vn>\w++)~;
-  my $v_spec = qr~$vg_spec?$vn_spec~;
-  my $v_symb = qr~[\w:]~;
-  my $var_use = qr~
-    (?'var_use'
-      \$ (?:
-        (?>$vn_spec) |
-        \{ (?:
-          (?>$v_spec) |
-          (?'nested' (?:(?&var_use)|$v_symb++)++ )
-        ) \}
-      )
-    )
-  ~x;
+  my $var_flat_spec = qr~(?:(\w*+)::)?(\w++)~;
+  my $var_nested_spec = qr~((?:\$\{(?-1)\}|\$?[\w:]++)++)~;
   my $substitute_flat_var = sub {
-    my $s = shift;
-    $s =~ /^$v_spec$/ ? $self->get_var($+{vg}//$section, $+{vn}, '') : undef
+    my $spec = shift;
+    $spec =~ /^$var_flat_spec$/ ? $self->get_var($1 // $section, $2, '') : undef
   };
   my $interpolate_str;
   $interpolate_str = sub {
     my $str = shift;
     $str =~ s~
       # normalize string
-      \\(.)
+      \\(n) | \\(t) | \\(.)
       |
       # interpolate variables
-      $var_use
+      \$(\{(?:(\w*)::)?)?(\w++)(?(4)\})
+      |
+      # interpolate nested variables
+      \$\{$var_nested_spec\}
     ~
       my $t;
-      defined $1 ? ($1 eq 'n' ? "\n" : $1 eq 't' ? "\t" : $1)
-        : defined $+{vn} ? $self->get_var($+{vg}//$section, $+{vn}, '')
-        : $substitute_flat_var->($t = $interpolate_str->($+{nested})) // "\${$t}"
+      $1 ? "\n" : $2 ? "\t" : $3 ? $3
+        : $6 ? $self->get_var(defined $5 ? $5||'' : $section, $6, '')
+        : $substitute_flat_var->($t = $interpolate_str->($7)) // "\${$t}"
     ~gex;
     $str
   };
@@ -334,67 +318,16 @@ sub m_load
     $str =~ s/\\([\\\$'" \t])/$1/g;
     $str
   };
-  my $space = qr~(?:\s++|#.*|\r?\n)\r?\n?(?{ $do_concat = 0 })~s;
-  my $normal_word = qr~((?:[^\\\'"# \t\n]|\\(?:.|$))++)(?{ &$add_word(&$interpolate_str($^N)) })~s;
-  my $q_str_beg  = qr~'((?:[^\\']|\\(?:.|$))*+)(?{ &$add_word(&$normalize_str($^N)) })~s;
-  my $qq_str_beg = qr~"((?:[^\\"]|\\(?:.|$))*+)(?{ &$add_word(&$interpolate_str($^N)) })~s;
-  my $q_str_end  = qr~((?:[^\\']|\\(?:.|$))*+)'(?{ $parr->[-1].=&$normalize_str($^N); })~s;
-  my $qq_str_end = qr~((?:[^\\"]|\\(?:.|$))*+)"(?{ $parr->[-1].=&$interpolate_str($^N)})~s;
-  my $q_str = qr<$q_str_beg$q_str_end>;
-  my $qq_str = qr<$qq_str_beg$qq_str_end>;
-  my ($vg, $vn, $not_spec);
-  my $as_vn = qr<(\w++)(?{$vn = $^N})>;
-  my $as_vg = qr<(?:(\w*)::(?{$vg = $^N})|(?{$vg = $section}))>;
-  my $as_var_use = qr`
-    (?&as_var_use) #< recursion is used to clean %+ values after a match.
-    (?(DEFINE)
-      (?'as_var_use' $var_use (?{
-        undef $not_spec;
-        if (defined $+{vn}) {
-          $vg = $+{vg} // $section;
-          $vn = $+{vn};
-        }
-        else {
-          my $spec = $interpolate_str->($+{nested});
-          if ($spec =~ /^$v_spec$/) {
-            $vg = $+{vg} // $section;
-            $vn = $+{vn};
-          }
-          else {
-            $not_spec = "\${$spec}";
-          }
-        }
-      }))
-    )
-  `x;
-  my $array_substitution = qr~(?(?{$do_concat})(?!))$as_var_use(?:$space|$)(?{
-    push @$parr, defined $not_spec ? $not_spec : $self->get_arr($vg, $vn);
-  })~;
-  my $value_part = qr<^(?:$array_substitution|$space|$normal_word|$q_str_beg(?:$(?{
-    $q = '\'';
-    $str_beg_ln = $ln;
-    $inside_string = 1;
-  })|$q_str_end)|$qq_str_beg(?:$(?{
-    $q = '"';
-    $str_beg_ln = $ln;
-    $inside_string = 1;
-  })|$qq_str_end))*+$>;
-  my $var_decl_beg = qr~^\s*$as_vg$as_vn\s*(\@?)=(?{
-    $self->{content}{$gr}{$var}= $parr if defined $var;
-    $gr = $vg;
-    $var = $vn;
-    $parr = [];
-    $multiline = $decl->is_multiline($gr, $var) || $3;
-    if (!$decl->is_valid($gr, $var)) {
-      push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "declaration of variable '${gr}::$var' is not permitted");
-    }
-    $do_concat = 0;
-  })~;
+  my $interpolate = 1;
+  my $inside_string = 0;
+  my $multiline = 0;
+  my ($ln, $s, $var, $parr, $str_beg_ln, $do_concat, $is_first, $q);
   my $cont = '';
   for ($ln = 1; defined ($s = <$f>) || $cont; $ln++) {
     ## process line continuation ##
     $s = '' if !defined $s;
-    if (substr($s, -3) =~ /\\/ && $s =~ s/((?:^|[^\\])(?:\\\\)*)\\\r?\n$/$1/) {
+    chomp $s;
+    if (substr($s, -3) =~ /\\/ && $s =~ s/((?:^|[^\\])(?:\\\\)*)\\$/$1/) {
       $cont .= $s;
       next;
     }
@@ -404,48 +337,108 @@ sub m_load
     }
     ## process accumulated line ##
     if (!$inside_string) {
-      # skip comment and blank string
-      next if $s =~ /^\s*(#|$)/;
-      # process group declaration
-      next if $s =~ /^\s*\[(\w*)\]\s*(?:#.*)?$(?{
+      # skip spaces
+      $s =~ /^\s+/gc;
+
+      ## determine expression type ##
+      if ($s =~ /\G(?:#|$)/gc){
+        # comment or empty string
+        next;
+      }
+      elsif ($s =~ /\G\[(\w*)\]\s*(?:#.*)?$/gc) {
+        # group declaration
         $self->{content}{$gr}{$var} = $parr if defined $var;
         undef $var;
         $section = $1;
         $multiline = 0;
-      })/;
-      # process variable declaration
-      if ($s =~ s/$var_decl_beg// || $multiline) {
-        if ($s !~ /$value_part/) {
-          chomp $s;
-          push @errors, Exceptions::TextFileError->new($self->{fname}
-                      , $ln, "unexpected string '$s' encountered");
-        }
+        next;
       }
-      else {
+      elsif ($s =~ /\G(?:(\w*)::)?(\w+)\s*(\@?)=/gc) {
+        # assignment statement
+        $self->{content}{$gr}{$var} = $parr if defined $var;
+        $gr = defined $1 ? $1 : $section;
+        $var = $2;
+        $multiline = $decl->is_multiline($gr, $var) || $3;
+        if (!$decl->is_valid($gr, $var)) {
+          push @errors, Exceptions::TextFileError->new($self->{fname}, $ln, "declaration of variable '${gr}::$var' is not permitted");
+        }
+        $parr = [];
+      }
+      elsif (!$multiline) {
         # unrecognized string
-        chomp $s;
         $self->{skip_unrecognized_lines} ||
             push @errors, Exceptions::TextFileError->new($self->{fname}
                         , $ln, "unrecognized line '$s'");
         next;
       }
     }
-    else {
-      # read string
-      if (!($q eq '\'' && $s =~ s/$q_str_end// || $q eq '"' && $s =~ s/$qq_str_end//)) {
-        # string is not finished
-        $parr->[-1] .= $q eq '"' ? &$interpolate_str($s) : &$normalize_str($s);
-        next;
+
+    ## read value ##
+    $is_first = 1; #< do not concatenate the first
+    while (pos $s < length $s || $inside_string) {
+      if ($inside_string) {
+        if ($s =~ /\G((?:[^\\$q]|\\.)*+)$q/gc) {
+          # string finished
+          $parr->[-1] .= $interpolate ? &$interpolate_str($1) : &$normalize_str($1);
+          $inside_string = 0;
+          $interpolate = 1;
+        }
+        else {
+          # string unfinished
+          my $str = substr $s, pos $s;
+          $parr->[-1] .= ($interpolate ? &$interpolate_str($str) : &$normalize_str($str))."\n";
+          last;
+        }
       }
-      $inside_string = 0;
-      if ($s !~ /$value_part/) {
-        chomp $s;
+
+      ## outside string ##
+      ## skip spaces and comments ##
+      $do_concat = $s !~ /\G\s+/gc && !$is_first;
+      $s =~ /\G#.*/gc;
+      last if pos $s == length $s;
+
+      ## take next word ##
+      if ($s =~ /\G((?:[^\\'"# \t]|\\(?:.|$))++)/gc) {
+        my $wrd = $1;
+        my $is_word_end = $s =~ /\G(?:\s|#|$)/;
+        # word taken
+        if ($do_concat) {
+          $parr->[-1] .= &$interpolate_str($wrd);
+        }
+        elsif ($is_word_end && $wrd =~ /^\$(\{(?:(\w*)::)?)?(\w++)(?(1)\})$/) {
+          # array interpolation
+          push @$parr, $self->get_arr(defined $2 ? $2||'' : $section, $3);
+        }
+        elsif ($is_word_end && $wrd =~ /^\$\{$var_nested_spec\}$/) {
+          # array interpolation for nested variable
+          my $spec = $interpolate_str->($1);
+          push @$parr, $spec =~ /^$var_flat_spec$/ ? $self->get_arr($1 // $section, $2) : "\${$spec}";
+        }
+        else {
+          push @$parr, &$interpolate_str($wrd);
+        }
+      }
+      elsif ($s =~ /\G(['"])/gc) {
+        # string encountered
+        $q = $1;
+        $interpolate = $q eq '"';
+        $inside_string = 1;
+        $str_beg_ln = $ln;
+        $do_concat or push @$parr, '';
+      }
+      else {
+        my $str = substr $s, pos $s;
         push @errors, Exceptions::TextFileError->new($self->{fname}
-                    , $ln, "unexpected string '$s' encountered");
+                        , $ln, "unexpected string '$str' encountered");
+        last;
       }
+      $is_first = 0;
     }
   }
   $self->{content}{$gr}{$var} = $parr if defined $var;
+
+  # break the reference to itself loop.
+  undef $interpolate_str;
 
   if ($inside_string){
     push @errors, Exceptions::TextFileError->new($self->{fname}, $ln-1, "unclosed string (see from line $str_beg_ln)");
