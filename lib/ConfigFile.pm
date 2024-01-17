@@ -260,6 +260,9 @@ sub m_load_old
   }
   close $f;
 
+  # break the reference to itself loop.
+  undef $interpolate_str;
+
   try{
     $self->check_required;
   }
