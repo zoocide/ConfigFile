@@ -397,6 +397,18 @@ sub m_load
       $s =~ /\G#.*/gc;
       last if pos $s == length $s;
 
+      ## take the next simple words list ##
+      if (!$do_concat) {
+        my $sz = @$parr;
+        push @$parr, $s =~ /\G(\w+)(?:\s+|$)/gc;
+        if ($sz != @$parr) {
+          $is_first = 0;
+          $do_concat = 0;
+          $s =~ /\G#.*/gc; #< skip comments again
+          last if pos $s == length $s;
+        }
+      }
+
       ## take next word ##
       if ($s =~ /\G((?:[^\\'"# \t]|\\(?:.|$))++)/gc) {
         my $wrd = $1;
