@@ -399,7 +399,14 @@ sub m_load
       ## take the next simple words list ##
       if (!$do_concat) {
         my $sz = @$parr;
-        push @$parr, $s =~ /\G(\w+)(?:\s+|$)/gc;
+        while (1) {
+          my $p = pos $s;
+          push @$parr, $s =~ /\G([^\s\$\\'"#]++)(?:\s+|$)/gc;
+          #push @$parr, $s =~ /\G(\w++)(?:\s+|$)/gc;
+          push @$parr, $s =~ /\G"([^\\\$"]*)"(?:\s+|$)/gc;
+          push @$parr, $s =~ /\G'([^\\']*)'(?:\s+|$)/gc;
+          last if $p == pos $s;
+        }
         if ($sz != @$parr) {
           $is_first = 0;
           $do_concat = 0;
