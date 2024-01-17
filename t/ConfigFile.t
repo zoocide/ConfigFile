@@ -157,10 +157,12 @@ sub check_config_file_rules
   my $space = ' '; #< prevents accidentally removing space at the end of line
   fill_file($fname, <<EOF);
 v=1
+
 [group]
 var_1 = a  complex value$space
   # comment string
 var_2 = '  a complex value  '
+
 var_5 = 'a complex
      # this is a part of the string
 
@@ -177,7 +179,7 @@ arr_2 = elm1 elm2 'complex element'
 elm3
   elm4 elm5
 arr_3 =
-elm1 elm2 elm3 elm4
+elm1 elm2 elm3 elm4#< arr_3 is multiline
 arr_4 @= 1
 2
  3
