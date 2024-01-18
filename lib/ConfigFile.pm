@@ -402,9 +402,16 @@ sub m_load
         while (1) {
           my $p = pos $s;
           push @$parr, $s =~ /\G([^\s\$\\'"#]++)(?:\s+|$)/gc;
-          #push @$parr, $s =~ /\G(\w++)(?:\s+|$)/gc;
-          push @$parr, $s =~ /\G"([^\\\$"]*)"(?:\s+|$)/gc;
-          push @$parr, $s =~ /\G'([^\\']*)'(?:\s+|$)/gc;
+          # Something strange happened on Windows (on unix it is ok):
+          # When encountered a complex word begin'foo bar'end, the $s =~ /\G"..."/gc matching
+          # heavily slowdowns the execution. It drops from 14ops/s to 3.5ops/s.
+          # The same situation with the begin"foo bar"end and the $s =~ /\G'...'/gc.
+          # So the character ' that even not exists in the string breaks the speed.
+          # The work around is to check the first symbol separately.
+          $s =~ /\G"/ and push @$parr, $s =~ /\G"([^\\"\$]*)"(?:\s+|$)?/gc;
+          $s =~ /\G'/ and push @$parr, $s =~ /\G'([^\\']*)'(?:\s+|$)/gc;
+          # push @$parr, $s =~ /\G"([^\\"\$]*)"(?:\s+|$)?/gc;
+          # push @$parr, $s =~ /\G'([^\\']*)'(?:\s+|$)/gc;
           last if $p == pos $s;
         }
         if ($sz != @$parr) {
