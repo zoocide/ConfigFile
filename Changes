@@ -1,4 +1,10 @@
 Revision history for Perl extension ConfigFile.
+0.8.2
+    + Changed the default loader on modern Perl to use the cursor-based parser with fast paths for simple words.
+    + Fixed a Windows parsing slowdown for words with quoted fragments.
+    + Fixed a memory leak in variable interpolation.
+    + Fixed recognition of comments after group declarations.
+    + Fixed concatenation of adjacent word fragments after closing quotes.
 0.8.1
     + Fix variables substitution when it is the first word followed by a string.
     + Fix the empty nested variable substitution.
