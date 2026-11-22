@@ -202,6 +202,7 @@ sub m_load_old
           $parr->[-1] .= $interpolate ? &$interpolate_str($1) : &$normalize_str($1);
           $inside_string = 0;
           $interpolate = 1;
+          $is_first = 0;
         }
         else {
           # string unfinished
@@ -381,6 +382,7 @@ sub m_load
           $parr->[-1] .= $interpolate ? &$interpolate_str($1) : &$normalize_str($1);
           $inside_string = 0;
           $interpolate = 1;
+          $is_first = 0;
         }
         else {
           # string unfinished
@@ -408,10 +410,9 @@ sub m_load
           # The same situation with the begin"foo bar"end and the $s =~ /\G'...'/gc.
           # So the character ' that even not exists in the string breaks the speed.
           # The work around is to check the first symbol separately.
-          $s =~ /\G"/ and push @$parr, $s =~ /\G"([^\\"\$]*)"(?:\s+|$)?/gc;
+          # Only consume complete words here. The general path joins adjacent fragments.
+          $s =~ /\G"/ and push @$parr, $s =~ /\G"([^\\"\$]*)"(?:\s+|$)/gc;
           $s =~ /\G'/ and push @$parr, $s =~ /\G'([^\\']*)'(?:\s+|$)/gc;
-          # push @$parr, $s =~ /\G"([^\\"\$]*)"(?:\s+|$)?/gc;
-          # push @$parr, $s =~ /\G'([^\\']*)'(?:\s+|$)/gc;
           last if $p == pos $s;
         }
         if ($sz != @$parr) {
