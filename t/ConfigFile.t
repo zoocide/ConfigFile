@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib '../lib';
-use Test::More tests => 186;
+use Test::More tests => 190;
 use File::Temp qw(tempfile);
 
 use Exceptions;
@@ -101,6 +101,7 @@ eval {
   ok(!$conf->is_set('', 'var_not_existed'));
 
   check_config_file_rules($fname);
+  check_adjacent_fragments($fname);
   check_variables_substitution($fname);
   check_shield_str($fname);
   check_array($fname);
@@ -121,6 +122,39 @@ sub fill_file
   print $f @_;
   close $f;
   1
+}
+
+sub check_adjacent_fragments
+{
+  my $fname = shift;
+  fill_file($fname, <<'EOF');
+base = one two
+bare = "abc"def ghi
+mixed = "ab"'cd'"ef"$base tail
+empty = ""suffix
+multi = "first
+last"tail
+single = 'first
+last'tail
+separate = "abc" $base
+comment = "abc"# tail
+EOF
+  my %expected = (
+    bare => ['abcdef', 'ghi'],
+    mixed => ['abcdefone two', 'tail'],
+    empty => ['suffix'],
+    multi => ["first\nlasttail"],
+    single => ["first\nlasttail"],
+    separate => ['abc', 'one', 'two'],
+    comment => ['abc'],
+  );
+
+  for my $loader (qw(m_load m_load_old)) {
+    my $cf = ConfigFile->new($fname);
+    ok(eval { $cf->$loader; 1 }, "$loader loads adjacent fragments") or diag("$@");
+    my %actual = map { $_ => [$cf->get_arr('', $_)] } keys %expected;
+    is_deeply(\%actual, \%expected, "$loader joins fragments within a word");
+  }
 }
 
 sub check_config_file_rules
